@@ -1,5 +1,6 @@
 __pycache__/
 lightning_logs/
+wandb/
 launch.json
 .python-version
 uv.lock

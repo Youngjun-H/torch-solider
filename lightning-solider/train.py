@@ -1,10 +1,12 @@
 import argparse
 
 import lightning as L
+import wandb
 from args import get_args_parser
 from dino_data_modeule import DINODataModule
 from dino_lightining_module import DINO
-from lightning.pytorch.callbacks import ModelCheckpoint
+from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
+from lightning.pytorch.loggers import WandbLogger
 
 
 def main():
@@ -13,11 +15,17 @@ def main():
     )
     args = parser.parse_args()
 
+    # wandb 설정
+    wandb_logger = WandbLogger(project="dino-solider")
+
     # 데이터 모듈 생성
     dm = DINODataModule(args)
 
     # 모델 생성
     model = DINO(args)
+
+    # Learning Rate Monitor 설정
+    lr_monitor = LearningRateMonitor(logging_interval="epoch")
 
     # Checkpoint Callback 설정
     # 최상위 모델을 저장하고, 주기적으로 체크포인트를 저장합니다.
@@ -40,7 +48,8 @@ def main():
         strategy="ddp_find_unused_parameters_true",  # DINO는 Teacher 파라미터가 grad 계산에서 제외되므로 필요할 수 있음
         precision=args.precision,  # args에서 precision 설정 사용
         max_epochs=args.epochs,
-        callbacks=[checkpoint_callback],
+        callbacks=[lr_monitor, checkpoint_callback],
+        logger=wandb_logger,
         sync_batchnorm=True,  # DINO 필수: 멀티 GPU간 BatchNorm 동기화
         use_distributed_sampler=True,  # DDP 환경에서 자동으로 DistributedSampler 사용
         log_every_n_steps=10,

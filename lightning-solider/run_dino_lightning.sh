@@ -8,7 +8,7 @@ cd "$(dirname "$0")" || exit
 python -W ignore train.py \
 --arch swin_base \
 --data_path /home/yjhwang/work/cctv-solider/data/1119/crops_raw_2/cam_0 \
---output_dir ./log/lup/dino_tiny \
+--output_dir ./log/lup/dino_base \
 --height 256 --width 128 \
 --crop_height 128 --crop_width 64 \
 --epochs 100 \
