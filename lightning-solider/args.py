@@ -230,4 +230,17 @@ def get_args_parser():
         type=int,
         help="Please ignore and do not set this argument.",
     )
+    parser.add_argument(
+        "--devices",
+        default=None,
+        type=int,
+        help="Number of GPUs to use. If not specified, Lightning will auto-detect available GPUs.",
+    )
+    parser.add_argument(
+        "--precision",
+        default="bf16-mixed",
+        type=str,
+        choices=["32", "16-mixed", "bf16-mixed"],
+        help="Precision for training. 'bf16-mixed' is recommended for A100 GPUs.",
+    )
     return parser
