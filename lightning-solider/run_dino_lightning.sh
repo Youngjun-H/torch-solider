@@ -5,7 +5,7 @@
 
 cd "$(dirname "$0")" || exit
 
-python -W ignore train.py \
+python -W ignore train_dino.py \
 --arch swin_base \
 --data_path /home/yjhwang/work/cctv-solider/data/1119/crops_raw_2/cam_0 \
 --output_dir ./log/lup/dino_base \

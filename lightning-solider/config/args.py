@@ -1,6 +1,11 @@
 import argparse
+import sys
+from pathlib import Path
 
-import utils
+# lightning-solider 루트 디렉토리를 path에 추가
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from shared import utils
 
 
 def get_args_parser():
@@ -243,4 +248,37 @@ def get_args_parser():
         choices=["32", "16-mixed", "bf16-mixed"],
         help="Precision for training. 'bf16-mixed' is recommended for A100 GPUs.",
     )
+
+    # SOLIDER specific arguments
+    parser.add_argument(
+        "--partnum",
+        default=3,
+        type=int,
+        help="""Predefined part number for Semantic Clustering""",
+    )
+    parser.add_argument(
+        "--parthead_nlayers",
+        default=3,
+        type=int,
+        help="""Number of layers for Semantic Head""",
+    )
+    parser.add_argument(
+        "--semantic_loss",
+        default=1.0,
+        type=float,
+        help="""Semantic Loss Weight""",
+    )
+    parser.add_argument(
+        "--resume",
+        default=False,
+        type=utils.bool_flag,
+        help="""Whether use resume. If True, please specify the init model.""",
+    )
+    parser.add_argument(
+        "--init_model",
+        default="checkpoint.pth",
+        type=str,
+        help="""Init model for resume""",
+    )
+
     return parser

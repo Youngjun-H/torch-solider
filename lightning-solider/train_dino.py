@@ -1,14 +1,20 @@
 """DINO 학습 스크립트."""
 
 import argparse
+import sys
+from pathlib import Path
 
 import lightning as L
 import wandb
-from args import get_args_parser
-from dino.dino_data_module import DINODataModule
-from dino.dino_lightning_module import DINOLightningModule
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
+
+# lightning-solider 루트 디렉토리를 path에 추가
+sys.path.insert(0, str(Path(__file__).parent))
+
+from config.args import get_args_parser
+from dino.dino_data_module import DINODataModule
+from dino.dino_lightning_module import DINOLightningModule
 
 
 def main():

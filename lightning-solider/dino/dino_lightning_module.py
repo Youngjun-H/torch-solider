@@ -1,32 +1,33 @@
 """DINO LightningModule."""
+
 import sys
 from pathlib import Path
 
 import lightning as L
-import swin_transformer as swin
 import torch
-import utils
-import vision_transformer as vits
 from torchvision import models as torchvision_models
-from vision_transformer import DINOHead
 
 # lightning-solider 루트 디렉토리를 path에 추가
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from base.base_lightning_module import BaseDINOLightningModule
 from dino.dino_criterion import DINOLoss
+from models import swin_transformer as swin
+from models import vision_transformer as vits
+from models.vision_transformer import DINOHead
+from shared import utils
 
 
 class DINOLightningModule(BaseDINOLightningModule):
     """
     DINO 학습을 위한 PyTorch Lightning Module.
-    
+
     BaseDINOLightningModule을 상속받아 DINO 특화 기능을 구현합니다.
     """
 
     def __init__(self, args):
         super().__init__(args)
-        
+
         # 1. 모델 아키텍처 빌드 (Student & Teacher)
         self._build_models()
 
@@ -43,7 +44,7 @@ class DINOLightningModule(BaseDINOLightningModule):
     def _build_models(self):
         """DINO 모델 아키텍처를 구축합니다."""
         args = self.args
-        
+
         # Backbone 선택 로직
         # Vision Transformer (ViT) 아키텍처
         if args.arch in vits.__dict__.keys():
@@ -166,4 +167,3 @@ class DINOLightningModule(BaseDINOLightningModule):
         self.log("wd", opt.param_groups[0]["weight_decay"], on_step=True, logger=True)
 
         return loss
-

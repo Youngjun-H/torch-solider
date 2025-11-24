@@ -1,12 +1,13 @@
 import sys
 from pathlib import Path
 
+from PIL import Image
+from torchvision import transforms
+
 # lightning-solider 루트 디렉토리를 path에 추가
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import utils
-from PIL import Image
-from torchvision import transforms
+from shared import utils
 
 
 class DataAugmentationDINO(object):

@@ -17,12 +17,18 @@ https://github.com/rwightman/pytorch-image-models/blob/master/timm/models/vision
 """
 import collections.abc
 import math
+import sys
 from functools import partial
 from itertools import repeat
+from pathlib import Path
 
 import torch
 import torch.nn as nn
-from utils import trunc_normal_
+
+# lightning-solider 루트 디렉토리를 path에 추가
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from shared.utils import trunc_normal_
 
 
 # From PyTorch internals
@@ -209,7 +215,7 @@ class VisionTransformer(nn.Module):
         attn_drop_rate=0.0,
         drop_path_rate=0.0,
         norm_layer=nn.LayerNorm,
-        **kwargs
+        **kwargs,
     ):
         super().__init__()
         self.num_features = self.embed_dim = embed_dim
@@ -370,7 +376,7 @@ def vit_tiny(patch_size=16, **kwargs):
         mlp_ratio=4,
         qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6),
-        **kwargs
+        **kwargs,
     )
     return model
 
@@ -384,7 +390,7 @@ def vit_small(patch_size=16, **kwargs):
         mlp_ratio=4,
         qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6),
-        **kwargs
+        **kwargs,
     )
     return model
 
@@ -398,7 +404,7 @@ def vit_base(patch_size=16, **kwargs):
         mlp_ratio=4,
         qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6),
-        **kwargs
+        **kwargs,
     )
     return model
 

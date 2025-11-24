@@ -1,4 +1,5 @@
 """Base LightningModule for DINO and SOLIDER."""
+
 import math
 import sys
 from pathlib import Path
@@ -10,13 +11,13 @@ import torch.optim as optim
 # lightning-solider 루트 디렉토리를 path에 추가
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import utils
+from shared import utils
 
 
 class BaseDINOLightningModule(L.LightningModule):
     """
     DINO와 SOLIDER의 공통 기능을 담은 Base 클래스.
-    
+
     공통 기능:
     - 모델 아키텍처 빌드 (하위 클래스에서 구현)
     - Optimizer 설정
@@ -37,7 +38,7 @@ class BaseDINOLightningModule(L.LightningModule):
         self.automatic_optimization = (
             False  # DINO는 수동 최적화가 더 적합 (Custom Schedulers 때문)
         )
-        
+
         # Schedules는 on_fit_start에서 초기화
         self.lr_schedule = None
         self.wd_schedule = None
@@ -133,7 +134,7 @@ class BaseDINOLightningModule(L.LightningModule):
     def _update_schedulers(self, optimizer):
         """
         매 스텝마다 LR, WD를 업데이트합니다.
-        
+
         Args:
             optimizer: 현재 optimizer
         """
@@ -176,4 +177,3 @@ class BaseDINOLightningModule(L.LightningModule):
         utils.cancel_gradients_last_layer(
             self.current_epoch, self.student, self.args.freeze_last_layer
         )
-
