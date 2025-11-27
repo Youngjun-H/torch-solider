@@ -350,24 +350,38 @@ class SOLIDERLightningModule(BaseDINOLightningModule):
         # 10. EMA Update (Teacher)
         self._update_teacher_ema()
 
-        # 11. Logging
+        # 11. Logging - loss.item()로 스칼라만 전달하여 메모리 절약
+        loss_value = loss.item()
+        loss1_value = loss1.item()
         self.log(
             "train_loss",
-            loss,
+            loss_value,
             on_step=True,
             on_epoch=True,
             prog_bar=True,
             logger=True,
             sync_dist=True,
         )
-        self.log("loss1", loss1, on_step=True, logger=True, sync_dist=True)
+        self.log("loss1", loss1_value, on_step=True, logger=True, sync_dist=True)
         self.log("fgnum", len(mask_idxs), on_step=True, logger=True, sync_dist=True)
 
         if len(mask_idxs) != 0:
-            self.log("loss2", loss2, on_step=True, logger=True, sync_dist=True)
-            self.log("acc", acc, on_step=True, logger=True, sync_dist=True)
+            loss2_value = loss2.item()
+            acc_value = acc.item()
+            self.log("loss2", loss2_value, on_step=True, logger=True, sync_dist=True)
+            self.log("acc", acc_value, on_step=True, logger=True, sync_dist=True)
 
         self.log("lr", opt.param_groups[0]["lr"], on_step=True, logger=True)
         self.log("wd", opt.param_groups[0]["weight_decay"], on_step=True, logger=True)
 
-        return loss
+        # 12. 명시적 메모리 해제 (메모리 누수 방지)
+        del student_output, student_feats, teacher_output, teacher_feats
+        if len(mask_idxs) != 0:
+            del feats, pred, labels, nimages, nmask
+
+        # 주기적으로 메모리 캐시 정리 (매 100 스텝마다)
+        if batch_idx % 100 == 0:
+            torch.cuda.empty_cache()
+
+        # Manual optimization 모드에서는 Tensor를 반환해야 함 (detach로 계산 그래프 분리)
+        return loss.detach()

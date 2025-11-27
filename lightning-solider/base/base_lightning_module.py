@@ -161,7 +161,8 @@ class BaseDINOLightningModule(L.LightningModule):
             for param_q, param_k in zip(
                 self.student.parameters(), self.teacher.parameters()
             ):
-                param_k.data.mul_(m).add_((1 - m) * param_q.detach().data)
+                # clone()으로 완전히 독립적인 텐서 생성하여 메모리 누수 방지
+                param_k.data.mul_(m).add_((1 - m) * param_q.detach().clone())
 
     def _apply_gradient_clipping(self, optimizer):
         """Gradient clipping을 적용합니다."""

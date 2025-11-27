@@ -11,11 +11,12 @@ from torchvision import models as torchvision_models
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from base.base_lightning_module import BaseDINOLightningModule
-from dino.dino_criterion import DINOLoss
 from models import swin_transformer as swin
 from models import vision_transformer as vits
 from models.vision_transformer import DINOHead
 from shared import utils
+
+from dino.dino_criterion import DINOLoss
 
 
 class DINOLightningModule(BaseDINOLightningModule):
@@ -153,10 +154,11 @@ class DINOLightningModule(BaseDINOLightningModule):
         # 5. EMA Update (Teacher)
         self._update_teacher_ema()
 
-        # 6. Logging
+        # 6. Logging - loss.item()로 스칼라만 전달하여 메모리 절약
+        loss_value = loss.item()
         self.log(
             "train_loss",
-            loss,
+            loss_value,
             on_step=True,
             on_epoch=True,
             prog_bar=True,
@@ -166,4 +168,12 @@ class DINOLightningModule(BaseDINOLightningModule):
         self.log("lr", opt.param_groups[0]["lr"], on_step=True, logger=True)
         self.log("wd", opt.param_groups[0]["weight_decay"], on_step=True, logger=True)
 
-        return loss
+        # 7. 명시적 메모리 해제 (메모리 누수 방지)
+        del student_output, teacher_output
+
+        # 주기적으로 메모리 캐시 정리 (매 100 스텝마다)
+        if batch_idx % 100 == 0:
+            torch.cuda.empty_cache()
+
+        # Manual optimization 모드에서는 Tensor를 반환해야 함 (detach로 계산 그래프 분리)
+        return loss.detach()

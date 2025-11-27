@@ -5,3 +5,4 @@ launch.json
 .python-version
 uv.lock*
 *.ckpt
+*.log
