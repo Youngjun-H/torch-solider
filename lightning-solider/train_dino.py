@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import lightning as L
+import torch
 import wandb
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
@@ -53,6 +54,7 @@ def main():
     trainer = L.Trainer(
         accelerator="gpu",
         devices=devices,
+        num_nodes=args.num_nodes,
         strategy="ddp_find_unused_parameters_true",  # DINO는 Teacher 파라미터가 grad 계산에서 제외되므로 필요할 수 있음
         precision=args.precision,  # args에서 precision 설정 사용
         max_epochs=args.epochs,
@@ -73,4 +75,6 @@ def main():
 
 
 if __name__ == "__main__":
+    torch.set_float32_matmul_precision("medium")
+    wandb.login(key="53f960c86b81377b89feb5d30c90ddc6c3810d3a")
     main()
