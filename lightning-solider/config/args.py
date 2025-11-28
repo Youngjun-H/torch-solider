@@ -242,6 +242,12 @@ def get_args_parser():
         help="Number of GPUs to use. If not specified, Lightning will auto-detect available GPUs.",
     )
     parser.add_argument(
+        "--num_nodes",
+        default=None,
+        type=int,
+        help="Number of Nodes to use",
+    )
+    parser.add_argument(
         "--precision",
         default="bf16-mixed",
         type=str,
