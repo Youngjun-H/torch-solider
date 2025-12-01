@@ -1,10 +1,12 @@
 """SOLIDER 학습 스크립트."""
 
 import argparse
+import datetime
 import sys
 from pathlib import Path
 
 import lightning as L
+import torch
 import wandb
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
@@ -24,7 +26,10 @@ def main():
     args = parser.parse_args()
 
     # wandb 설정
-    wandb_logger = WandbLogger(project="dino-solider")
+    wandb_logger = WandbLogger(
+        project="dino-solider",
+        name=f"phase2_batchsize_{args.batch_size_per_gpu}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{args.data_path}",
+    )
 
     # 데이터 모듈 생성
     dm = SOLIDERDataModule(args)
@@ -56,6 +61,7 @@ def main():
     trainer = L.Trainer(
         accelerator="gpu",
         devices=devices,
+        num_nodes=args.num_nodes,
         strategy="ddp_find_unused_parameters_true",  # SOLIDER는 Teacher 파라미터가 grad 계산에서 제외되므로 필요
         precision=args.precision,
         max_epochs=args.epochs,
@@ -75,4 +81,6 @@ def main():
 
 
 if __name__ == "__main__":
+    torch.set_float32_matmul_precision("medium")
+    wandb.login(key="your_wandb_api_key")
     main()

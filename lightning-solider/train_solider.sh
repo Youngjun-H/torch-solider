@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=DINO-SOLIDER
+#SBATCH --job-name=SOLIDER-Phase2
 #SBATCH --partition=hopper
 #SBATCH --nodes=4
 #SBATCH --gres=gpu:8
@@ -68,18 +68,23 @@ ip -4 addr show 2>/dev/null | head -20 || ifconfig 2>/dev/null | head -20
 
 # srun을 사용하여 각 노드에서 프로세스 실행
 # PyTorch Lightning이 SLURM 환경 변수를 자동으로 감지하여 분산 학습 설정
-srun python -W ignore train_dino.py \
+srun python -W ignore train_solider.py \
 --arch swin_base \
 --data_path /purestorage/AILAB/AI_2/datasets/PersonReID/solider_surv_pre_v2/images \
---output_dir ./log/solider_base_out_0.02_epoch100_dataset_v2_val-test \
+--output_dir ./log/lup/solider_base_out_0.04_epoch200_dataset_v2_phase2 \
 --height 256 --width 128 \
 --crop_height 128 --crop_width 64 \
---epochs 100 \
---batch_size_per_gpu 112 \
---num_workers 8 \
+--epochs 10 \
+--batch_size_per_gpu 64 \
 --global_crops_scale 0.8 1. \
 --local_crops_scale 0.05 0.8 \
+--partnum 3 \
+--parthead_nlayers 3 \
+--semantic_loss 1.0 \
+--warmup_epochs 1 \
+--lr 0.00005 \
 --devices 8 \
 --num_nodes 4 \
 --precision bf16-mixed \
---teacher_temp 0.02
+--resume true \
+--init_model /purestorage/AILAB/AI_2/yjhwang/work/reid/torch-solider/lightning-solider/log/solider_base_out_0.02_epoch200_dataset_v2/dino-epoch=119-train_loss=0.47.ckpt

@@ -25,7 +25,10 @@ def main():
     args = parser.parse_args()
 
     # wandb 설정
-    wandb_logger = WandbLogger(project="dino-solider")
+    wandb_logger = WandbLogger(
+        project="dino-solider",
+        name=f"teacher_temp_{args.teacher_temp}_{args.data_path}",
+    )
 
     # 데이터 모듈 생성
     dm = DINODataModule(args)
@@ -76,5 +79,5 @@ def main():
 
 if __name__ == "__main__":
     torch.set_float32_matmul_precision("medium")
-    wandb.login(key="YOUR_WANDB_API_KEY")
+    wandb.login(key="your_wandb_api_key")
     main()
