@@ -1334,7 +1334,8 @@ class SwinTransformer(BaseModule):
                     constant_init(m.bias, 0)
                     constant_init(m.weight, 1.0)
         else:
-            ckpt = torch.load(pretrained, map_location="cpu")
+            # weights_only=False: PyTorch 2.6+에서 numpy 객체를 포함한 체크포인트 로드를 위해 필요
+            ckpt = torch.load(pretrained, map_location="cpu", weights_only=False)
             if "teacher" in ckpt:
                 ckpt = ckpt["teacher"]
 

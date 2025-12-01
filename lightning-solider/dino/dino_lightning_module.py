@@ -177,3 +177,71 @@ class DINOLightningModule(BaseDINOLightningModule):
 
         # Manual optimization 모드에서는 Tensor를 반환해야 함 (detach로 계산 그래프 분리)
         return loss.detach()
+
+    def compute_feature_variance(self, dataloader, num_batches=5):
+        """
+        Student backbone의 feature variance를 계산합니다.
+        Projection head 이전의 encoder output을 사용합니다.
+
+        Args:
+            dataloader: 데이터로더
+            num_batches: 계산에 사용할 배치 수
+
+        Returns:
+            mean_var: 평균 feature variance
+        """
+        self.eval()
+        vars_list = []
+
+        # 모델의 device 확인
+        device = next(self.parameters()).device
+
+        with torch.no_grad():
+            for i, batch in enumerate(dataloader):
+                if i >= num_batches:
+                    break
+
+                images, _ = batch  # Label은 무시
+                # 첫 번째 global crop만 사용 (일관성을 위해)
+                if isinstance(images, list):
+                    images = images[0]
+
+                # 이미지를 모델과 같은 device로 이동
+                images = images.to(device)
+
+                # Student backbone의 encoder output (projection head 이전)
+                # Backbone은 (output, _) 형태 또는 단일 output을 반환할 수 있음
+                backbone_output = self.student.backbone(images)
+                if isinstance(backbone_output, tuple):
+                    feats = backbone_output[0]  # 첫 번째 출력이 encoder output
+                else:
+                    feats = backbone_output
+
+                # Feature variance 계산: 각 feature dimension에 대한 variance의 평균
+                var_dim = feats.var(dim=0).mean().item()
+                vars_list.append(var_dim)
+
+        self.train()  # 다시 training 모드로 전환
+        return sum(vars_list) / len(vars_list) if len(vars_list) > 0 else 0.0
+
+    def on_train_epoch_end(self):
+        """
+        Epoch 종료 시 feature variance를 계산하고 로깅합니다.
+        """
+        # 매 epoch마다 feature variance 계산
+        if hasattr(self.trainer, "datamodule") and self.trainer.datamodule is not None:
+            train_dataloader = self.trainer.datamodule.train_dataloader()
+            if train_dataloader is not None:
+                mean_var = self.compute_feature_variance(
+                    train_dataloader, num_batches=5
+                )
+                self.print(
+                    f"[Epoch {self.current_epoch}] FeatureVariance = {mean_var:.4f}"
+                )
+                self.log(
+                    "feature_variance",
+                    mean_var,
+                    on_epoch=True,
+                    logger=True,
+                    sync_dist=True,
+                )

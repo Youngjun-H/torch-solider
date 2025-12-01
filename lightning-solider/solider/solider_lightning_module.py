@@ -153,7 +153,8 @@ class SOLIDERLightningModule(BaseDINOLightningModule):
         print(f"Loading DINO checkpoint from {checkpoint_path}")
 
         # Load checkpoint
-        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        # weights_only=False: PyTorch 2.6+에서 numpy 객체를 포함한 체크포인트 로드를 위해 필요
+        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
 
         # Lightning checkpoint 형식인지 확인
         is_lightning_checkpoint = (
