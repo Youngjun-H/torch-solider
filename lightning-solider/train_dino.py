@@ -25,9 +25,14 @@ def main():
     args = parser.parse_args()
 
     # wandb 설정
+    # 멀티 노드 환경에서 wandb 로깅이 중단되지 않도록 설정
     wandb_logger = WandbLogger(
         project="dino-solider",
-        name=f"teacher_temp_{args.teacher_temp}_{args.data_path}",
+        name=f"phase1_{args.teacher_temp}_{args.data_path}",
+        log_model=False,  # 모델 저장 비활성화 (메모리 절약)
+        save_dir="./wandb_logs",  # 로컬 로그 저장 디렉토리
+        # 멀티 노드 환경에서 rank 0만 로깅하도록 설정 (기본값이지만 명시)
+        # settings=wandb.Settings(start_method="fork"),  # 필요시 주석 해제
     )
 
     # 데이터 모듈 생성

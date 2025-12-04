@@ -71,10 +71,10 @@ ip -4 addr show 2>/dev/null | head -20 || ifconfig 2>/dev/null | head -20
 srun python -W ignore train_dino.py \
 --arch swin_base \
 --data_path /purestorage/AILAB/AI_2/datasets/PersonReID/solider_surv_pre_v2/images \
---output_dir ./log/solider_base_out_0.02_epoch100_dataset_v2_val-test \
+--output_dir ./log/solider_base_out_0.04_epoch15_dataset_v2_val-test \
 --height 256 --width 128 \
 --crop_height 128 --crop_width 64 \
---epochs 100 \
+--epochs 50 \
 --batch_size_per_gpu 112 \
 --num_workers 8 \
 --global_crops_scale 0.8 1. \
@@ -82,4 +82,4 @@ srun python -W ignore train_dino.py \
 --devices 8 \
 --num_nodes 4 \
 --precision bf16-mixed \
---teacher_temp 0.02
+--teacher_temp 0.04
