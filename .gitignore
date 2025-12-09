@@ -4,5 +4,7 @@ wandb/
 launch.json
 .python-version
 uv.lock*
+
 *.ckpt
+*.pth
 *.log
