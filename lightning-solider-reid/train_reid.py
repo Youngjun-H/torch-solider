@@ -69,17 +69,16 @@ def main():
 
     # wandb 설정
     wandb_logger = WandbLogger(
-        project="dino-solider",
-        name=f"phase2_batchsize_{args.batch_size_per_gpu}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{args.data_path}",
+        project="solider-reid",
+        name=f"{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}",
     )
 
     # Create data module
     dm = ReIDDataModule(args)
     dm.setup()
 
-    # Create model
-    model = ReIDLightningModule(args)
-    model.setup()
+    # Create model (pass datamodule reference for early access to dataset info)
+    model = ReIDLightningModule(args, datamodule=dm)
 
     # Callbacks
     lr_monitor = LearningRateMonitor(logging_interval="step")
@@ -123,5 +122,5 @@ def main():
 
 if __name__ == "__main__":
     torch.set_float32_matmul_precision("medium")
-    wandb.login(key="your_wandb_api_key")
+    wandb.login(key="53f960c86b81377b89feb5d30c90ddc6c3810d3a")
     main()

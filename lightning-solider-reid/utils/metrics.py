@@ -98,6 +98,8 @@ class R1_mAP_eval:
         self.max_rank = max_rank
         self.feat_norm = feat_norm
         self.reranking = reranking
+        # Initialize attributes
+        self.reset()
 
     def reset(self):
         self.feats = []

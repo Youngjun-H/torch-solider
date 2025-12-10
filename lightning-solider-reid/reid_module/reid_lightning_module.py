@@ -13,10 +13,11 @@ from utils.metrics import R1_mAP_eval
 class ReIDLightningModule(L.LightningModule):
     """ReID Lightning Module."""
 
-    def __init__(self, args):
+    def __init__(self, args, datamodule=None):
         super().__init__()
         self.save_hyperparameters(vars(args))
         self.args = args
+        self.datamodule = datamodule  # Store datamodule reference
 
         # Will be initialized in setup
         self.model = None
@@ -27,15 +28,29 @@ class ReIDLightningModule(L.LightningModule):
     def setup(self, stage=None):
         """Setup model and loss."""
         # Get dataset info from datamodule
-        if hasattr(self.trainer, "datamodule") and self.trainer.datamodule is not None:
-            num_classes = self.trainer.datamodule.num_classes
-            camera_num = self.trainer.datamodule.camera_num
-            view_num = self.trainer.datamodule.view_num
-        else:
-            # Fallback values (will be updated when datamodule is available)
-            num_classes = 1000  # placeholder
-            camera_num = 0
-            view_num = 0
+        # Try multiple ways to get datamodule info
+        num_classes = 1000  # placeholder
+        camera_num = 0
+        view_num = 0
+
+        # Method 1: From stored datamodule reference
+        if self.datamodule is not None:
+            num_classes = self.datamodule.num_classes
+            camera_num = self.datamodule.camera_num
+            view_num = self.datamodule.view_num
+        # Method 2: From trainer (when attached)
+        elif hasattr(self, "trainer") and self.trainer is not None:
+            try:
+                if (
+                    hasattr(self.trainer, "datamodule")
+                    and self.trainer.datamodule is not None
+                ):
+                    num_classes = self.trainer.datamodule.num_classes
+                    camera_num = self.trainer.datamodule.camera_num
+                    view_num = self.trainer.datamodule.view_num
+            except RuntimeError:
+                # Trainer not attached yet, use placeholder
+                pass
 
         # Create model config
         class Config:
@@ -157,18 +172,23 @@ class ReIDLightningModule(L.LightningModule):
 
     def on_fit_start(self):
         """Initialize evaluator."""
-        if hasattr(self.trainer, "datamodule") and self.trainer.datamodule is not None:
+        num_query = 100  # placeholder
+        feat_norm = self.args.feat_norm == "yes"
+
+        # Try to get num_query from datamodule
+        if self.datamodule is not None:
+            num_query = self.datamodule.num_query
+        elif (
+            hasattr(self.trainer, "datamodule") and self.trainer.datamodule is not None
+        ):
             num_query = self.trainer.datamodule.num_query
-            feat_norm = self.args.feat_norm == "yes"
-            self.evaluator = R1_mAP_eval(
-                num_query=num_query,
-                max_rank=50,
-                feat_norm=feat_norm,
-                reranking=False,
-            )
-        else:
-            # Placeholder
-            self.evaluator = R1_mAP_eval(num_query=100, max_rank=50, feat_norm=True)
+
+        self.evaluator = R1_mAP_eval(
+            num_query=num_query,
+            max_rank=50,
+            feat_norm=feat_norm,
+            reranking=False,
+        )
 
     def training_step(self, batch, batch_idx):
         """Training step."""

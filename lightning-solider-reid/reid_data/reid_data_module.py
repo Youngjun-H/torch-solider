@@ -1,9 +1,9 @@
 """ReID DataModule for Lightning."""
 
 import lightning as L
-import torch
 import torchvision.transforms as T
 from datasets.bases import ImageDataset
+from datasets.custom_dataset import CustomDataset
 
 # Local imports
 from datasets.make_dataloader import (
@@ -17,10 +17,11 @@ from datasets.mm import MM
 from datasets.msmt17 import MSMT17
 from torch.utils.data import DataLoader
 
-__factory = {
+_factory = {
     "market1501": Market1501,
     "msmt17": MSMT17,
     "mm": MM,
+    "custom": CustomDataset,
 }
 
 
@@ -53,20 +54,17 @@ class ReIDDataModule(L.LightningDataModule):
             ]
         )
 
-        # Add RandomErasing if available
-        try:
-            from timm.data.random_erasing import RandomErasing
+        # Add RandomErasing
+        from datasets.transforms import RandomErasing
 
-            train_transforms.transforms.append(
-                RandomErasing(
-                    probability=self.args.re_prob,
-                    mode="pixel",
-                    max_count=1,
-                    device="cpu",
-                )
+        train_transforms.transforms.append(
+            RandomErasing(
+                probability=self.args.re_prob,
+                mode="pixel",
+                max_count=1,
+                device="cpu",
             )
-        except ImportError:
-            print("Warning: timm not available, skipping RandomErasing")
+        )
 
         val_transforms = T.Compose(
             [
@@ -77,7 +75,7 @@ class ReIDDataModule(L.LightningDataModule):
         )
 
         # Load dataset
-        dataset = __factory[self.args.dataset_name](root=self.args.root_dir)
+        dataset = _factory[self.args.dataset_name](root=self.args.root_dir)
 
         self.train_dataset = ImageDataset(dataset.train, train_transforms)
         self.val_dataset = ImageDataset(dataset.query + dataset.gallery, val_transforms)

@@ -102,7 +102,7 @@ def get_args_parser():
         "--dataset_name",
         default="msmt17",
         type=str,
-        choices=["msmt17", "market1501", "mm"],
+        choices=["msmt17", "market1501", "mm", "custom"],
         help="Dataset name",
     )
     parser.add_argument(

@@ -6,56 +6,105 @@
 
 import math
 import random
-import cv2
 from collections import deque
-from PIL import Image, ImageFilter
+
 import torch
+from PIL import Image
+
 
 class RandomErasing(object):
-    """ Randomly selects a rectangle region in an image and erases its pixels.
+    """Randomly selects a rectangle region in an image and erases its pixels.
         'Random Erasing Data Augmentation' by Zhong et al.
         See https://arxiv.org/pdf/1708.04896.pdf
+
+    This implementation is compatible with timm's RandomErasing interface.
+
     Args:
          probability: The probability that the Random Erasing operation will be performed.
-         sl: Minimum proportion of erased area against input image.
-         sh: Maximum proportion of erased area against input image.
-         r1: Minimum aspect ratio of erased area.
-         mean: Erasing value.
+         sl: Minimum proportion of erased area against input image (default: 0.02).
+         sh: Maximum proportion of erased area against input image (default: 0.4).
+         r1: Minimum aspect ratio of erased area (default: 0.3).
+         mean: Erasing value for 'const' mode (default: (0.4914, 0.4822, 0.4465)).
+         mode: 'pixel' (random pixel values) or 'const' (constant value) (default: 'const').
+         max_count: Maximum number of erasing operations (default: 1).
+         device: Device to use (ignored, kept for compatibility) (default: 'cpu').
     """
 
-    def __init__(self, probability=0.5, sl=0.02, sh=0.4, r1=0.3, mean=(0.4914, 0.4822, 0.4465)):
+    def __init__(
+        self,
+        probability=0.5,
+        sl=0.02,
+        sh=0.4,
+        r1=0.3,
+        mean=(0.4914, 0.4822, 0.4465),
+        mode="const",
+        max_count=1,
+        device="cpu",
+    ):
         self.probability = probability
         self.mean = mean
         self.sl = sl
         self.sh = sh
         self.r1 = r1
+        self.mode = mode
+        self.max_count = max_count
+        self.device = device
 
     def __call__(self, img):
-
         if random.uniform(0, 1) >= self.probability:
             return img
 
-        for attempt in range(100):
-            area = img.size()[1] * img.size()[2]
+        # Apply erasing up to max_count times
+        for _ in range(self.max_count):
+            if random.uniform(0, 1) >= self.probability:
+                break
 
-            target_area = random.uniform(self.sl, self.sh) * area
-            aspect_ratio = random.uniform(self.r1, 1 / self.r1)
+            for attempt in range(100):
+                area = img.size()[1] * img.size()[2]
 
-            h = int(round(math.sqrt(target_area * aspect_ratio)))
-            w = int(round(math.sqrt(target_area / aspect_ratio)))
+                target_area = random.uniform(self.sl, self.sh) * area
+                aspect_ratio = random.uniform(self.r1, 1 / self.r1)
 
-            if w < img.size()[2] and h < img.size()[1]:
-                x1 = random.randint(0, img.size()[1] - h)
-                y1 = random.randint(0, img.size()[2] - w)
-                if img.size()[0] == 3:
-                    img[0, x1:x1 + h, y1:y1 + w] = self.mean[0]
-                    img[1, x1:x1 + h, y1:y1 + w] = self.mean[1]
-                    img[2, x1:x1 + h, y1:y1 + w] = self.mean[2]
-                else:
-                    img[0, x1:x1 + h, y1:y1 + w] = self.mean[0]
-                return img
+                h = int(round(math.sqrt(target_area * aspect_ratio)))
+                w = int(round(math.sqrt(target_area / aspect_ratio)))
+
+                if w < img.size()[2] and h < img.size()[1]:
+                    x1 = random.randint(0, img.size()[1] - h)
+                    y1 = random.randint(0, img.size()[2] - w)
+
+                    # Determine erasing value based on mode
+                    # Note: img is already normalized (after ToTensor and Normalize)
+                    if self.mode == "pixel":
+                        # Random pixel values in normalized range
+                        # For normalized images, use random values in reasonable range
+                        # Typically normalized images are in range [-2, 2] or similar
+                        if img.size()[0] == 3:
+                            # Generate random values for each channel independently
+                            img[0, x1 : x1 + h, y1 : y1 + w] = (
+                                torch.rand(h, w, device=img.device) * 2.0 - 1.0
+                            )
+                            img[1, x1 : x1 + h, y1 : y1 + w] = (
+                                torch.rand(h, w, device=img.device) * 2.0 - 1.0
+                            )
+                            img[2, x1 : x1 + h, y1 : y1 + w] = (
+                                torch.rand(h, w, device=img.device) * 2.0 - 1.0
+                            )
+                        else:
+                            img[0, x1 : x1 + h, y1 : y1 + w] = (
+                                torch.rand(h, w, device=img.device) * 2.0 - 1.0
+                            )
+                    else:  # 'const' mode
+                        # Constant value (mean is already in normalized space)
+                        if img.size()[0] == 3:
+                            img[0, x1 : x1 + h, y1 : y1 + w] = self.mean[0]
+                            img[1, x1 : x1 + h, y1 : y1 + w] = self.mean[1]
+                            img[2, x1 : x1 + h, y1 : y1 + w] = self.mean[2]
+                        else:
+                            img[0, x1 : x1 + h, y1 : y1 + w] = self.mean[0]
+                    break
 
         return img
+
 
 class RandomPatch(object):
     """Random patch data augmentation.
@@ -72,15 +121,15 @@ class RandomPatch(object):
     """
 
     def __init__(
-            self,
-            prob_happen=0.5,
-            pool_capacity=50000,
-            min_sample_size=100,
-            patch_min_area=0.01,
-            patch_max_area=0.5,
-            patch_min_ratio=0.1,
-            prob_rotate=0.5,
-            prob_flip_leftright=0.5,
+        self,
+        prob_happen=0.5,
+        pool_capacity=50000,
+        min_sample_size=100,
+        patch_min_area=0.01,
+        patch_max_area=0.5,
+        patch_min_ratio=0.1,
+        prob_rotate=0.5,
+        prob_flip_leftright=0.5,
     ):
         self.prob_happen = prob_happen
 
@@ -97,11 +146,11 @@ class RandomPatch(object):
     def generate_wh(self, W, H):
         area = W * H
         for attempt in range(100):
-            target_area = random.uniform(
-                self.patch_min_area, self.patch_max_area
-            ) * area
+            target_area = (
+                random.uniform(self.patch_min_area, self.patch_max_area) * area
+            )
             aspect_ratio = random.uniform(
-                self.patch_min_ratio, 1. / self.patch_min_ratio
+                self.patch_min_ratio, 1.0 / self.patch_min_ratio
             )
             h = int(round(math.sqrt(target_area * aspect_ratio)))
             w = int(round(math.sqrt(target_area / aspect_ratio)))
@@ -142,4 +191,3 @@ class RandomPatch(object):
         img.paste(patch, (x1, y1))
 
         return img
-
