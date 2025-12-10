@@ -7,8 +7,15 @@ from .bases import ImageDataset
 from .market1501 import Market1501
 from .mm import MM
 from .msmt17 import MSMT17
-from .sampler import RandomIdentitySampler, RandomIdentitySampler_IdUniform
-from .sampler_ddp import RandomIdentitySampler_DDP
+from .sampler import (
+    RandomIdentitySampler,
+    RandomIdentitySampler_IdUniform,
+    StratifiedIdentitySampler,
+)
+from .sampler_ddp import (
+    RandomIdentitySampler_DDP,
+    StratifiedIdentitySampler_DDP,
+)
 from .transforms import RandomErasing
 
 __factory = {

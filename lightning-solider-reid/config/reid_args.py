@@ -108,8 +108,26 @@ def get_args_parser():
     parser.add_argument(
         "--root_dir",
         type=str,
-        required=True,
-        help="Root directory of dataset",
+        default="",
+        help="Root directory of dataset (기존 방식: 하나의 디렉토리에서 자동 분리). custom 데이터셋에서 train_dir/query_dir/gallery_dir 사용 시 불필요",
+    )
+    parser.add_argument(
+        "--train_dir",
+        default="",
+        type=str,
+        help="Training directory (별도 디렉토리 방식: train_dir, query_dir, gallery_dir 모두 지정 시 사용)",
+    )
+    parser.add_argument(
+        "--query_dir",
+        default="",
+        type=str,
+        help="Query directory (별도 디렉토리 방식)",
+    )
+    parser.add_argument(
+        "--gallery_dir",
+        default="",
+        type=str,
+        help="Gallery directory (별도 디렉토리 방식)",
     )
     parser.add_argument(
         "--sampler",
@@ -345,6 +363,12 @@ def get_args_parser():
         type=str,
         choices=["32", "16-mixed", "bf16-mixed"],
         help="Training precision",
+    )
+    parser.add_argument(
+        "--accumulate_grad_batches",
+        default=1,
+        type=int,
+        help="Number of batches to accumulate gradients before optimizer step",
     )
     parser.add_argument(
         "--resume",

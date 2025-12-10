@@ -12,7 +12,9 @@ def create_scheduler(cfg, optimizer):
     # warmup_lr_init = 0.001 * cfg.SOLVER.BASE_LR
     # type 2
     lr_min = 0.002 * cfg.SOLVER.BASE_LR
-    warmup_lr_init = 0.01 * cfg.SOLVER.BASE_LR
+    # Warmup 초기값을 더 합리적으로 설정: base_lr의 1%가 아닌 10%로 시작
+    # 이렇게 하면 warmup 기간 동안 learning rate가 더 빠르게 증가
+    warmup_lr_init = 0.1 * cfg.SOLVER.BASE_LR
     # type 3
     # lr_min = 0.001 * cfg.SOLVER.BASE_LR
     # warmup_lr_init = 0.01 * cfg.SOLVER.BASE_LR

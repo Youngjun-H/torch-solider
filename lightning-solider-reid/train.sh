@@ -66,22 +66,39 @@ hostname -I
 echo "Network interface details:"
 ip -4 addr show 2>/dev/null | head -20 || ifconfig 2>/dev/null | head -20
 
+# =============================================================================
+# SLURM에서 실제 할당된 노드 수와 GPU 수 확인
+# SLURM 환경 변수를 직접 사용 (가장 정확함)
+# =============================================================================
+ACTUAL_NODES=${SLURM_NNODES:-1}
+ACTUAL_GPUS_PER_NODE=${SLURM_NTASKS_PER_NODE:-8}
+
+echo "================================================================"
+echo "Starting training with:"
+echo "  - Nodes: $ACTUAL_NODES"
+echo "  - GPUs per node: $ACTUAL_GPUS_PER_NODE"
+echo "  - Total GPUs: $((ACTUAL_NODES * ACTUAL_GPUS_PER_NODE))"
+echo "================================================================"
+echo ""
+
 # srun을 사용하여 각 노드에서 프로세스 실행
 # PyTorch Lightning이 SLURM 환경 변수를 자동으로 감지하여 분산 학습 설정
-srun python train_reid.py \
+srun python train.py \
     --transformer_type swin_base_patch4_window7_224 \
     --pretrain_path /purestorage/AILAB/AI_2/yjhwang/work/reid/torch-solider/important_checkpoints/phase2/phase2.pth \
     --pretrain_choice self \
     --semantic_weight 0.2 \
     --dataset_name custom \
-    --root_dir /purestorage/AILAB/AI_4/datasets/cctv/image/preprocessed/2025-10-15 \
+    --train_dir /purestorage/AILAB/AI_2/datasets/PersonReID/cctv_reid_dataset_v2/train \
+    --query_dir /purestorage/AILAB/AI_2/datasets/PersonReID/cctv_reid_dataset_v2/valid/query \
+    --gallery_dir /purestorage/AILAB/AI_2/datasets/PersonReID/cctv_reid_dataset_v2/valid/gallery \
     --base_lr 0.0002 \
     --optimizer_name SGD \
     --max_epochs 120 \
     --warmup_epochs 20 \
     --warmup_method cosine \
     --weight_decay 1e-4 \
-    --ims_per_batch 64 \
+    --ims_per_batch 1024 \
     --num_instance 4 \
     --sampler softmax_triplet \
     --metric_loss_type triplet \
@@ -92,5 +109,6 @@ srun python train_reid.py \
     --checkpoint_period 120 \
     --log_period 20 \
     --output_dir ./log/msmt17/swin_base \
-    --devices 1 \
+    --num_nodes ${ACTUAL_NODES} \
+    --devices ${ACTUAL_GPUS_PER_NODE} \
     --precision bf16-mixed

@@ -3,11 +3,11 @@
 
 CUDA_VISIBLE_DEVICES=0 python train_reid.py \
     --transformer_type swin_base_patch4_window7_224 \
-    --pretrain_path path/to/SOLIDER/log/lup/swin_base/checkpoint_tea.pth \
+    --pretrain_path /purestorage/AILAB/AI_2/yjhwang/work/reid/torch-solider/important_checkpoints/phase2/phase2.pth \
     --pretrain_choice self \
     --semantic_weight 0.2 \
     --dataset_name msmt17 \
-    --root_dir path/to/msmt17/datasets \
+    --root_dir /purestorage/AILAB/AI_4/datasets/cctv/image/preprocessed/2025-10-15 \
     --base_lr 0.0002 \
     --optimizer_name SGD \
     --max_epochs 120 \
@@ -26,5 +26,5 @@ CUDA_VISIBLE_DEVICES=0 python train_reid.py \
     --log_period 20 \
     --output_dir ./log/msmt17/swin_base \
     --devices 1 \
-    --precision 16-mixed
+    --precision bf16-mixed
 

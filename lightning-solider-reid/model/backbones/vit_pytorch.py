@@ -476,6 +476,11 @@ class TransReID(nn.Module):
         return x[:, 0]
 
     def forward(self, x, cam_label=None, view_label=None):
+        # Camera ID와 View를 사용하지 않는 경우 None 처리
+        if cam_label is None:
+            cam_label = torch.zeros(x.size(0), dtype=torch.long, device=x.device)
+        if view_label is None:
+            view_label = torch.zeros(x.size(0), dtype=torch.long, device=x.device)
         x = self.forward_features(x, cam_label, view_label)
         return x
 

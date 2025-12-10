@@ -120,8 +120,13 @@ tensorboard --logdir ./log/reid/logs
 
 ## 커스텀 데이터셋 사용법
 
-커스텀 데이터셋을 사용하려면 다음과 같은 디렉토리 구조를 준비하세요:
+커스텀 데이터셋은 두 가지 방식으로 사용할 수 있습니다:
 
+### 방식 1: 자동 분리 (하나의 디렉토리)
+
+하나의 디렉토리에 모든 이미지를 두고, 코드에서 자동으로 train/query/gallery로 분리합니다.
+
+**디렉토리 구조:**
 ```
 root_dir/
     ID1/
@@ -136,31 +141,60 @@ root_dir/
         ...
 ```
 
-각 ID 디렉토리 이름이 person ID가 되며, 해당 디렉토리 내의 이미지들이 해당 ID의 이미지입니다.
-
-사용 예시:
-
+**사용 예시:**
 ```bash
 python train_reid.py \
-    --transformer_type swin_base_patch4_window7_224 \
-    --pretrain_path path/to/checkpoint_tea.pth \
-    --pretrain_choice self \
-    --semantic_weight 0.2 \
     --dataset_name custom \
     --root_dir path/to/your/custom/dataset \
-    --base_lr 0.0002 \
-    --optimizer_name SGD \
-    --max_epochs 120 \
-    --warmup_epochs 20 \
-    --warmup_method cosine \
-    --output_dir ./log/custom \
-    --devices 1
+    ...
 ```
 
-**참고**: 커스텀 데이터셋은 자동으로 train/query/gallery를 분리합니다.
-- Training: 모든 이미지 사용 (기본값)
-- Query: 각 ID의 20% 이미지 (기본값)
-- Gallery: 각 ID의 80% 이미지 (기본값)
+**참고**: 
+- Training: 모든 이미지 사용 (기본값, `train_ratio=1.0`)
+- Query: 각 ID의 20% 이미지 (기본값, `query_ratio=0.2`)
+- Gallery: 각 ID의 80% 이미지 (기본값, `gallery_ratio=0.8`)
+
+### 방식 2: 별도 디렉토리 (권장)
+
+train, query, gallery를 별도 디렉토리로 준비한 경우:
+
+**디렉토리 구조:**
+```
+train_dir/
+    ID1/
+        image1.jpg
+        ...
+    ID2/
+        ...
+
+query_dir/
+    ID1/
+        image1.jpg
+        ...
+    ID2/
+        ...
+
+gallery_dir/
+    ID1/
+        image1.jpg
+        ...
+    ID2/
+        ...
+```
+
+**사용 예시:**
+```bash
+python train_reid.py \
+    --dataset_name custom \
+    --train_dir path/to/train \
+    --query_dir path/to/query \
+    --gallery_dir path/to/gallery \
+    ...
+```
+
+**참고**: 
+- 각 디렉토리의 모든 이미지가 사용됩니다 (자동 분리 없음)
+- ID 디렉토리 이름이 person ID가 됩니다
 
 ## 주의사항
 
