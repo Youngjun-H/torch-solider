@@ -20,7 +20,9 @@ hostname -I;
 srun python build_reid_dataset.py \
   --train_dir "/purestorage/AILAB/AI_4/datasets/cctv/image/preprocessed/2025-10-15" \
   --val_dir "/purestorage/AILAB/AI_4/datasets/cctv/image/preprocessed/2025-10-16" \
-  --output_dir "/purestorage/AILAB/AI_2/datasets/PersonReID/cctv_reid_dataset" \
+  --output_dir "/purestorage/AILAB/AI_2/datasets/PersonReID/cctv_reid_dataset_v2" \
+  --train_max_per_id 500 \
+  --gallery_max_per_id 80 \
   --query_per_floor 2 \
   --seed 42
 

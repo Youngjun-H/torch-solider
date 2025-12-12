@@ -2,10 +2,12 @@
 """
 ReID 데이터셋 구축 스크립트
 
-Training: 2025-10-15의 모든 ID를 train으로 사용
+Training: 2025-10-15의 각 ID당 최대 500장을 층별로 균일하게 선택
 Validation: 2025-10-16의 각 ID를 query/gallery로 분할
   - Query: 각 층별로 2장씩 선택
-  - Gallery: 나머지 모든 이미지
+  - Gallery: 각 ID당 최대 80장을 층별로 균일하게 선택 (query 제외 후)
+
+모든 선택은 층별로 균일하게 분배되며, 각 층 내에서는 랜덤하게 샘플링됩니다.
 """
 import random
 import re
@@ -15,7 +17,6 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-from torch import nn
 from tqdm import tqdm
 
 # 이미지 확장자 정의
@@ -31,9 +32,6 @@ IMG_EXTENSIONS = (
     ".BMP",
     ".PPM",
 )
-
-model = nn.Linear(1000, 1000)
-model.to("cuda")
 
 
 def is_image_file(filename: str) -> bool:
@@ -119,9 +117,75 @@ def organize_by_id_and_floor(image_paths: List[str]) -> Dict[str, Dict[str, List
     return organized
 
 
+def sample_images_uniformly_by_floor(
+    floor_dict: Dict[str, List[str]],
+    max_images: int,
+    seed: int = 42,
+) -> List[str]:
+    """
+    층별로 균일하게 이미지를 샘플링
+
+    Args:
+        floor_dict: {floor: [image_paths]} 형식의 딕셔너리
+        max_images: 최대 선택할 이미지 수
+        seed: 랜덤 시드
+
+    Returns:
+        선택된 이미지 경로 리스트
+    """
+    random.seed(seed)
+
+    # 각 층의 이미지를 랜덤하게 섞기
+    shuffled_floors = {}
+    for floor, img_paths in floor_dict.items():
+        shuffled = img_paths.copy()
+        random.shuffle(shuffled)
+        shuffled_floors[floor] = shuffled
+
+    # 층별로 균등하게 분배
+    num_floors = len(shuffled_floors)
+    if num_floors == 0:
+        return []
+
+    # 각 층당 기본 할당량 계산
+    per_floor_base = max_images // num_floors
+    remainder = max_images % num_floors
+
+    selected_images = []
+    floor_indices = {}  # 각 층에서 현재 선택한 인덱스
+
+    # 각 층에 기본 할당량 분배
+    for floor_idx, (floor, img_paths) in enumerate(shuffled_floors.items()):
+        floor_indices[floor] = 0
+        # 나머지가 있으면 처음 몇 개 층에 1개씩 추가
+        num_to_take = per_floor_base + (1 if floor_idx < remainder else 0)
+        num_to_take = min(num_to_take, len(img_paths))
+        selected_images.extend(img_paths[:num_to_take])
+        floor_indices[floor] = num_to_take
+
+    # 아직 부족하면 층별로 순환하며 추가 선택
+    while len(selected_images) < max_images:
+        added = False
+        for floor, img_paths in shuffled_floors.items():
+            if len(selected_images) >= max_images:
+                break
+            if floor_indices[floor] < len(img_paths):
+                selected_images.append(img_paths[floor_indices[floor]])
+                floor_indices[floor] += 1
+                added = True
+        if not added:
+            break  # 더 이상 추가할 이미지가 없음
+
+    # 최종적으로 랜덤하게 섞기 (층별 순서를 완전히 섞기)
+    random.shuffle(selected_images)
+
+    return selected_images[:max_images]
+
+
 def split_validation_data(
     organized_data: Dict[str, Dict[str, List[str]]],
     query_per_floor: int = 2,
+    gallery_max_per_id: int = 80,
     seed: int = 42,
 ) -> Tuple[Dict[str, List[str]], Dict[str, List[str]]]:
     """
@@ -130,6 +194,7 @@ def split_validation_data(
     Args:
         organized_data: {id_dir: {floor: [image_paths]}}
         query_per_floor: 각 층별로 선택할 query 이미지 수
+        gallery_max_per_id: 각 ID당 최대 gallery 이미지 수
         seed: 랜덤 시드
 
     Returns:
@@ -144,7 +209,7 @@ def split_validation_data(
         organized_data.items(), desc="Query/Gallery 분할", leave=False
     ):
         query_paths = []
-        gallery_paths = []
+        remaining_floor_dict = defaultdict(list)
 
         # 각 층별로 query 선택
         for floor, img_paths in floor_dict.items():
@@ -156,12 +221,20 @@ def split_validation_data(
                 shuffled = img_paths.copy()
                 random.shuffle(shuffled)
                 query_paths.extend(shuffled[:query_per_floor])
-                gallery_paths.extend(shuffled[query_per_floor:])
+                # 나머지는 gallery 후보로 저장
+                remaining_floor_dict[floor] = shuffled[query_per_floor:]
 
+        # Query가 있으면 저장
         if len(query_paths) > 0:
             query_dict[id_dir] = query_paths
-        if len(gallery_paths) > 0:
-            gallery_dict[id_dir] = gallery_paths
+
+        # Gallery는 층별로 균일하게 최대 gallery_max_per_id개 선택
+        if len(remaining_floor_dict) > 0:
+            gallery_paths = sample_images_uniformly_by_floor(
+                remaining_floor_dict, gallery_max_per_id, seed=seed
+            )
+            if len(gallery_paths) > 0:
+                gallery_dict[id_dir] = gallery_paths
 
     return dict(query_dict), dict(gallery_dict)
 
@@ -287,7 +360,9 @@ def build_reid_dataset(
     train_dir: str,
     val_dir: str,
     output_dir: str,
+    train_max_per_id: int = 500,
     query_per_floor: int = 2,
+    gallery_max_per_id: int = 80,
     seed: int = 42,
 ):
     """
@@ -297,7 +372,9 @@ def build_reid_dataset(
         train_dir: Training 이미지 디렉토리 (2025-10-15)
         val_dir: Validation 이미지 디렉토리 (2025-10-16)
         output_dir: 출력 디렉토리
-        query_per_floor: 각 층별로 선택할 query 이미지 수
+        train_max_per_id: 각 ID당 최대 training 이미지 수 (기본값: 500)
+        query_per_floor: 각 층별로 선택할 query 이미지 수 (기본값: 2)
+        gallery_max_per_id: 각 ID당 최대 gallery 이미지 수 (기본값: 80)
         seed: 랜덤 시드
     """
     print("=" * 60)
@@ -318,13 +395,16 @@ def build_reid_dataset(
     train_images = find_all_images(train_dir)
     train_organized = organize_by_id_and_floor(train_images)
 
-    # Training은 층 구분 없이 모든 이미지 사용
+    # Training은 각 ID당 train_max_per_id장, 층별로 균일하게 선택
     train_data = {}
-    for id_dir, floor_dict in train_organized.items():
-        all_images = []
-        for floor_images in floor_dict.values():
-            all_images.extend(floor_images)
-        train_data[id_dir] = all_images
+    for id_dir, floor_dict in tqdm(
+        train_organized.items(), desc="Training 데이터 샘플링", leave=False
+    ):
+        selected_images = sample_images_uniformly_by_floor(
+            floor_dict, train_max_per_id, seed=seed
+        )
+        if len(selected_images) > 0:
+            train_data[id_dir] = selected_images
 
     print(
         f"Training: {len(train_data)}개 ID, 총 {sum(len(imgs) for imgs in train_data.values())}개 이미지"
@@ -337,9 +417,12 @@ def build_reid_dataset(
     val_images = find_all_images(val_dir)
     val_organized = organize_by_id_and_floor(val_images)
 
-    # Query/Gallery 분할 (층별로 query_per_floor개씩)
+    # Query/Gallery 분할 (층별로 query_per_floor개씩, gallery는 ID당 gallery_max_per_id장)
     query_data, gallery_data = split_validation_data(
-        val_organized, query_per_floor=query_per_floor, seed=seed
+        val_organized,
+        query_per_floor=query_per_floor,
+        gallery_max_per_id=gallery_max_per_id,
+        seed=seed,
     )
 
     print(
@@ -405,10 +488,22 @@ def main():
     )
     parser.add_argument("--output_dir", type=str, required=True, help="출력 디렉토리")
     parser.add_argument(
+        "--train_max_per_id",
+        type=int,
+        default=500,
+        help="각 ID당 최대 training 이미지 수 (기본값: 500)",
+    )
+    parser.add_argument(
         "--query_per_floor",
         type=int,
         default=2,
         help="각 층별로 선택할 query 이미지 수 (기본값: 2)",
+    )
+    parser.add_argument(
+        "--gallery_max_per_id",
+        type=int,
+        default=80,
+        help="각 ID당 최대 gallery 이미지 수 (기본값: 80)",
     )
     parser.add_argument("--seed", type=int, default=42, help="랜덤 시드 (기본값: 42)")
 
@@ -426,7 +521,9 @@ def main():
             train_dir=args.train_dir,
             val_dir=args.val_dir,
             output_dir=args.output_dir,
+            train_max_per_id=args.train_max_per_id,
             query_per_floor=args.query_per_floor,
+            gallery_max_per_id=args.gallery_max_per_id,
             seed=args.seed,
         )
     except KeyboardInterrupt:
