@@ -249,6 +249,23 @@ class ReIDLightningModule(L.LightningModule):
         # 디버깅: on_fit_start 호출 확인
         if self.trainer is not None and self.trainer.global_rank == 0:
             print(f"[Rank 0] on_fit_start() called")
+            # Lightning이 계산한 training batches 확인
+            if hasattr(self.trainer, "num_training_batches"):
+                print(
+                    f"  - trainer.num_training_batches = {self.trainer.num_training_batches}"
+                )
+            # DataLoader 길이 확인
+            if (
+                hasattr(self.trainer, "datamodule")
+                and self.trainer.datamodule is not None
+            ):
+                try:
+                    train_dataloader = self.trainer.datamodule.train_dataloader()
+                    if train_dataloader is not None:
+                        dataloader_len = len(train_dataloader)
+                        print(f"  - len(train_dataloader) = {dataloader_len}")
+                except Exception as e:
+                    print(f"  - ERROR getting train_dataloader length: {e}")
 
         num_query = 100  # placeholder
         feat_norm = self.args.feat_norm == "yes"
@@ -273,6 +290,81 @@ class ReIDLightningModule(L.LightningModule):
 
         if self.trainer is not None and self.trainer.global_rank == 0:
             print(f"[Rank 0] Evaluator initialized")
+
+    def on_train_start(self):
+        """Called when training starts.
+
+        Lightning이 batch_sampler를 사용하는 DataLoader의 길이를 올바르게 인식하도록
+        limit_train_batches를 동적으로 설정합니다.
+        """
+        if self.trainer is not None and self.trainer.global_rank == 0:
+            print(f"[Rank 0] on_train_start() called")
+            # Lightning이 계산한 training batches 확인
+            if hasattr(self.trainer, "num_training_batches"):
+                print(
+                    f"  - trainer.num_training_batches = {self.trainer.num_training_batches}"
+                )
+            # DataLoader 길이 확인 및 limit_train_batches 설정
+            if (
+                hasattr(self.trainer, "datamodule")
+                and self.trainer.datamodule is not None
+            ):
+                try:
+                    train_dataloader = self.trainer.datamodule.train_dataloader()
+                    if train_dataloader is not None:
+                        dataloader_len = len(train_dataloader)
+                        print(f"  - len(train_dataloader) = {dataloader_len}")
+                        # Lightning의 내부 속성 확인
+                        if hasattr(self.trainer, "num_training_batches"):
+                            current_batches = self.trainer.num_training_batches
+                            # inf이거나 잘못된 값인 경우 limit_train_batches 설정
+                            if (
+                                isinstance(current_batches, float)
+                                and (
+                                    current_batches == float("inf")
+                                    or current_batches != dataloader_len
+                                )
+                            ) or (
+                                isinstance(current_batches, int)
+                                and current_batches != dataloader_len
+                            ):
+                                print(
+                                    f"  - WARNING: trainer.num_training_batches ({current_batches}) != len(train_dataloader) ({dataloader_len})"
+                                )
+                                # limit_train_batches를 동적으로 설정
+                                # 주의: Lightning의 내부 속성을 직접 수정하는 것은 권장되지 않지만,
+                                # batch_sampler 길이 인식 문제를 해결하기 위해 필요합니다.
+                                try:
+                                    # Lightning의 limit_train_batches는 property일 수 있으므로
+                                    # 직접 설정이 어려울 수 있습니다.
+                                    # 대신 Trainer의 _data_connector를 통해 설정을 시도합니다.
+                                    if hasattr(self.trainer, "_data_connector"):
+                                        # _data_connector의 limit_train_batches 설정 시도
+                                        if hasattr(
+                                            self.trainer._data_connector,
+                                            "limit_train_batches",
+                                        ):
+                                            self.trainer._data_connector.limit_train_batches = (
+                                                dataloader_len
+                                            )
+                                            print(
+                                                f"  - Set limit_train_batches to {dataloader_len}"
+                                            )
+                                        else:
+                                            print(
+                                                f"  - Could not find limit_train_batches in _data_connector"
+                                            )
+                                    else:
+                                        print(
+                                            f"  - Could not find _data_connector in trainer"
+                                        )
+                                except Exception as e:
+                                    print(f"  - Could not set limit_train_batches: {e}")
+                                    print(
+                                        f"  - Training will continue, but progress bar may show incorrect step count."
+                                    )
+                except Exception as e:
+                    print(f"  - ERROR getting train_dataloader length: {e}")
 
     def training_step(self, batch, batch_idx):
         """Training step."""

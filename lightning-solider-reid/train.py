@@ -149,6 +149,11 @@ def main():
     # 1. ReID model may have conditional parameters (camera_num=0, view_num=0)
     # 2. center_criterion may not be used in all training steps
     # 3. Some model parameters may be conditionally used based on input
+
+    # 주의: Lightning이 batch_sampler를 사용하는 DataLoader의 길이를 올바르게 인식하지 못하는 문제가 있습니다.
+    # 이는 Lightning의 내부 구현 문제로, on_train_start()에서 limit_train_batches를 동적으로 설정하여 해결합니다.
+    # 여기서는 일단 None으로 설정하고, ReIDLightningModule의 on_train_start()에서 처리합니다.
+
     trainer = L.Trainer(
         accelerator="gpu",
         devices=devices,

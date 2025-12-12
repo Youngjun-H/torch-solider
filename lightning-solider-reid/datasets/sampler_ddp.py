@@ -214,21 +214,15 @@ class RandomIdentitySampler_DDP(Sampler):
             self.index_dic[pid].append(index)
         self.pids = list(self.index_dic.keys())
 
-        # estimate number of examples in an epoch
-        self.length = 0
-        for pid in self.pids:
-            idxs = self.index_dic[pid]
-            num = len(idxs)
-            if num < self.num_instances:
-                num = self.num_instances
-            self.length += num - num % self.num_instances
-
         self.rank = dist.get_rank()
         # self.world_size = dist.get_world_size()
-        self.length //= self.world_size
 
         # __len__에서 계산한 길이를 캐싱하기 위한 변수
+        # 주의: __init__에서 self.length를 계산하지 않음
+        # __len__에서 sample_list()를 호출하여 배치 크기를 고려한 정확한 길이를 계산함
         self._cached_length = None
+        # __iter__에서 사용할 수 있도록 초기값 설정 (하지만 실제로는 __iter__에서 재계산됨)
+        self.length = None
 
     def __iter__(self):
         """
@@ -358,6 +352,8 @@ class RandomIdentitySampler_DDP(Sampler):
         """
         # 캐시된 값이 있으면 사용
         if self._cached_length is not None:
+            if dist.get_rank() == 0:
+                print(f"DEBUG: RandomIdentitySampler_DDP.__len__ - using cached length: {self._cached_length}")
             return self._cached_length
 
         # sample_list()를 호출하여 실제 생성될 인덱스 개수 계산
@@ -370,9 +366,21 @@ class RandomIdentitySampler_DDP(Sampler):
             test_seed = 42  # 고정된 seed
             np.random.seed(test_seed)
             final_idxs = self.sample_list()
-            length = int(math.ceil(len(final_idxs) * 1.0 / self.world_size))
+            total_length = len(final_idxs)
+            length = int(math.ceil(total_length * 1.0 / self.world_size))
             final_idxs = self.__fetch_current_node_idxs(final_idxs, length)
-            self._cached_length = len(final_idxs)
+            calculated_length = len(final_idxs)
+            self._cached_length = calculated_length
+            
+            # 디버깅: 길이 계산 확인
+            if dist.get_rank() == 0:
+                print(f"DEBUG: RandomIdentitySampler_DDP.__len__ - calculated length:")
+                print(f"  - total final_idxs: {total_length}")
+                print(f"  - length per rank: {length}")
+                print(f"  - actual length for this rank: {calculated_length}")
+                print(f"  - mini_batch_size: {self.mini_batch_size}")
+                print(f"  - expected batches: {calculated_length // self.mini_batch_size if self.mini_batch_size > 0 else 0}")
+            
             return self._cached_length
         finally:
             # random state 복원
@@ -442,17 +450,14 @@ class StratifiedIdentitySampler_DDP(Sampler):
             self.index_dic[pid].append(index)
         self.pids = list(self.index_dic.keys())
 
-        # estimate number of examples in an epoch
-        self.length = 0
-        for pid in self.pids:
-            idxs = self.index_dic[pid]
-            num = len(idxs)
-            if num < self.num_instances:
-                num = self.num_instances
-            self.length += num - num % self.num_instances
-
         self.rank = dist.get_rank()
-        self.length //= self.world_size
+
+        # __len__에서 계산한 길이를 캐싱하기 위한 변수
+        # 주의: __init__에서 self.length를 계산하지 않음
+        # __len__에서 sample_list()를 호출하여 배치 크기를 고려한 정확한 길이를 계산함
+        self._cached_length = None
+        # __iter__에서 사용할 수 있도록 초기값 설정 (하지만 실제로는 __iter__에서 재계산됨)
+        self.length = None
 
     def _sample_with_floor(self, pid, idxs):
         """층 정보를 고려하여 샘플링"""
@@ -642,6 +647,8 @@ class StratifiedIdentitySampler_DDP(Sampler):
         """
         # 캐시된 값이 있으면 사용
         if self._cached_length is not None:
+            if dist.get_rank() == 0:
+                print(f"DEBUG: StratifiedIdentitySampler_DDP.__len__ - using cached length: {self._cached_length}")
             return self._cached_length
 
         # sample_list()를 호출하여 실제 생성될 인덱스 개수 계산
@@ -654,9 +661,21 @@ class StratifiedIdentitySampler_DDP(Sampler):
             test_seed = 42  # 고정된 seed
             np.random.seed(test_seed)
             final_idxs = self.sample_list()
-            length = int(math.ceil(len(final_idxs) * 1.0 / self.world_size))
+            total_length = len(final_idxs)
+            length = int(math.ceil(total_length * 1.0 / self.world_size))
             final_idxs = self.__fetch_current_node_idxs(final_idxs, length)
-            self._cached_length = len(final_idxs)
+            calculated_length = len(final_idxs)
+            self._cached_length = calculated_length
+            
+            # 디버깅: 길이 계산 확인
+            if dist.get_rank() == 0:
+                print(f"DEBUG: StratifiedIdentitySampler_DDP.__len__ - calculated length:")
+                print(f"  - total final_idxs: {total_length}")
+                print(f"  - length per rank: {length}")
+                print(f"  - actual length for this rank: {calculated_length}")
+                print(f"  - mini_batch_size: {self.mini_batch_size}")
+                print(f"  - expected batches: {calculated_length // self.mini_batch_size if self.mini_batch_size > 0 else 0}")
+            
             return self._cached_length
         finally:
             # random state 복원

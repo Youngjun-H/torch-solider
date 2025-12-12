@@ -123,9 +123,18 @@ class ReIDDataModule(L.LightningDataModule):
             rank = dist.get_rank()
 
         if rank == 0:
+            import traceback
+
             print(f"[Rank 0] train_dataloader() called")
             print(f"  - sampler: {self.args.sampler}")
             print(f"  - dataset_name: {self.args.dataset_name}")
+            # 호출 스택 확인 (최대 3단계)
+            stack = traceback.extract_stack()
+            if len(stack) >= 3:
+                caller = stack[-3]
+                print(
+                    f"  - called from: {caller.filename}:{caller.lineno} in {caller.name}"
+                )
 
         if self.args.sampler in ["softmax_triplet", "img_triplet"]:
             # Lightning 표준: trainer를 통해 DDP 환경 확인
@@ -220,15 +229,40 @@ class ReIDDataModule(L.LightningDataModule):
                     print(f"DEBUG: BatchSampler created:")
                     print(f"  - batch_size: {actual_mini_batch_size}")
                     print(f"  - num_instance: {self.args.num_instance}")
-                    # len() 호출은 실제 학습 시작 시 Lightning이 자동으로 수행하므로
-                    # 여기서는 호출하지 않음 (DDP 동기화 문제 방지)
+                    # len() 호출하여 sampler의 __len__이 제대로 작동하는지 확인
+                    try:
+                        sampler_len = len(data_sampler)
+                        batch_sampler_len = len(batch_sampler)
+                        print(f"  - sampler.__len__() = {sampler_len}")
+                        print(f"  - batch_sampler.__len__() = {batch_sampler_len}")
+                        print(
+                            f"  - expected batches = {sampler_len // actual_mini_batch_size if actual_mini_batch_size > 0 else 0}"
+                        )
+                    except Exception as e:
+                        print(f"  - ERROR calling len(): {e}")
 
                 # DDP 환경에서는 num_workers를 줄여서 메모리 및 프로세스 문제 방지
                 # 32개 GPU * 8 workers = 256개 worker 프로세스는 너무 많음
                 # DDP에서는 보통 0-2가 적절
                 num_workers = min(self.args.num_workers, 2)
 
-                return DataLoader(
+                # DataLoader를 생성
+                # 주의: Lightning이 batch_sampler를 사용하는 DataLoader의 길이를 올바르게 인식하도록
+                # DataLoader를 서브클래스화하여 __len__을 명시적으로 구현
+                class ExplicitLengthDataLoader(DataLoader):
+                    """DataLoader with explicit __len__ implementation for Lightning compatibility."""
+
+                    def __len__(self):
+                        # batch_sampler가 있으면 len(batch_sampler)를 반환
+                        if (
+                            hasattr(self, "batch_sampler")
+                            and self.batch_sampler is not None
+                        ):
+                            return len(self.batch_sampler)
+                        # fallback to parent implementation
+                        return super().__len__()
+
+                dataloader = ExplicitLengthDataLoader(
                     self.train_dataset,
                     batch_sampler=batch_sampler,  # Lightning 표준: BatchSampler 사용
                     num_workers=num_workers,
@@ -236,6 +270,31 @@ class ReIDDataModule(L.LightningDataModule):
                     pin_memory=True,
                     persistent_workers=num_workers > 0,  # Worker 재사용으로 성능 향상
                 )
+
+                # 디버깅: DataLoader 길이 확인
+                if rank == 0:
+                    try:
+                        dataloader_len = len(dataloader)
+                        print(
+                            f"DEBUG: DataLoader length (at train_dataloader() return):"
+                        )
+                        print(f"  - len(DataLoader) = {dataloader_len}")
+                        print(f"  - len(batch_sampler) = {len(batch_sampler)}")
+                        print(f"  - len(sampler) = {len(data_sampler)}")
+                        if hasattr(dataloader, "batch_sampler"):
+                            print(
+                                f"  - dataloader.batch_sampler exists: {dataloader.batch_sampler is not None}"
+                            )
+                        # Lightning이 사용할 수 있는 속성 확인
+                        if hasattr(self, "trainer") and self.trainer is not None:
+                            if hasattr(self.trainer, "num_training_batches"):
+                                print(
+                                    f"  - trainer.num_training_batches = {self.trainer.num_training_batches}"
+                                )
+                    except Exception as e:
+                        print(f"  - ERROR getting DataLoader length: {e}")
+
+                return dataloader
             else:
                 # 단일 GPU 환경에서는 일반 sampler 사용
                 if self.args.dataset_name == "custom":
