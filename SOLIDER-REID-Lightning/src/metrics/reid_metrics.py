@@ -95,10 +95,9 @@ class ReIDMetrics(Metric):
         max_rank: int = 50,
         feat_norm: str = 'yes',
         dist_type: str = 'euclidean',
-        compute_on_step: bool = False,
         **kwargs
     ):
-        super().__init__(compute_on_step=compute_on_step, **kwargs)
+        super().__init__(**kwargs)
 
         self.num_query = num_query
         self.max_rank = max_rank

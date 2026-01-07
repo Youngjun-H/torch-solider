@@ -234,7 +234,7 @@ def build_scheduler(cfg, optimizer):
 
 def train_one_epoch(
     model, train_loader, optimizer, scheduler,
-    ce_loss_fn, triplet_loss_fn, scaler, cfg, epoch, logger
+    ce_loss_fn, triplet_loss_fn, scaler, cfg, epoch, logger, global_step=0
 ):
     """Train for one epoch"""
     model.train()
@@ -247,6 +247,7 @@ def train_one_epoch(
     end = time.time()
 
     for batch_idx, batch in enumerate(train_loader):
+        global_step += 1
         data_time.update(time.time() - end)
 
         # Move data to GPU
@@ -322,10 +323,23 @@ def train_one_epoch(
                 f'LR: {lr:.6f}'
             )
 
+            # Log step metrics to WandB
+            if cfg.logging.use_wandb:
+                import wandb
+                wandb.log({
+                    'step': global_step,
+                    'step/loss': loss.item(),
+                    'step/id_loss': id_loss.item(),
+                    'step/triplet_loss': triplet_loss.item(),
+                    'step/acc': acc.item(),
+                    'step/triplet_prec': triplet_prec.item(),
+                    'step/lr': lr,
+                }, step=global_step)
+
     # Step scheduler
     scheduler.step()
 
-    return meters
+    return meters, global_step
 
 
 @torch.no_grad()
@@ -338,7 +352,7 @@ def evaluate_model(model, val_loader, num_query, cfg, logger):
     camids_list = []
 
     for batch in val_loader:
-        imgs, pids, camids, _, _, _ = batch
+        imgs, pids, camids, _, _ = batch
         imgs = imgs.cuda(non_blocking=True)
 
         # Extract features
@@ -517,25 +531,26 @@ def main():
 
     # Training loop
     logger.info("Starting training...")
+    global_step = start_epoch * len(train_loader)
 
     for epoch in range(start_epoch + 1, cfg.training.max_epochs + 1):
         # Train
-        meters = train_one_epoch(
+        meters, global_step = train_one_epoch(
             model, train_loader, optimizer, scheduler,
-            ce_loss_fn, triplet_loss_fn, scaler, cfg, epoch, logger
+            ce_loss_fn, triplet_loss_fn, scaler, cfg, epoch, logger, global_step
         )
 
-        # Log to WandB
+        # Log epoch metrics to WandB
         if is_main_process() and cfg.logging.use_wandb:
             import wandb
             wandb.log({
                 'epoch': epoch,
-                'train/loss': meters.get_avg('loss'),
-                'train/id_loss': meters.get_avg('id_loss'),
-                'train/triplet_loss': meters.get_avg('triplet_loss'),
-                'train/acc': meters.get_avg('acc'),
-                'train/lr': optimizer.param_groups[0]['lr'],
-            })
+                'epoch/loss': meters.get_avg('loss'),
+                'epoch/id_loss': meters.get_avg('id_loss'),
+                'epoch/triplet_loss': meters.get_avg('triplet_loss'),
+                'epoch/acc': meters.get_avg('acc'),
+                'epoch/lr': optimizer.param_groups[0]['lr'],
+            }, step=global_step)
 
         # Evaluate
         if epoch % cfg.training.eval_period == 0:
@@ -568,7 +583,7 @@ def main():
                         'val/rank5': results['rank5'],
                         'val/rank10': results['rank10'],
                         'val/best_mAP': best_mAP,
-                    })
+                    }, step=global_step)
 
         # Synchronize
         if distributed:

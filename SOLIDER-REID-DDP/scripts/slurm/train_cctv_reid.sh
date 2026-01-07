@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=solider-ddp
-#SBATCH --nodelist=nv170
+#SBATCH --nodelist=nv170,nv172,nv174,nv176
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:8
 #SBATCH --ntasks-per-node=8
