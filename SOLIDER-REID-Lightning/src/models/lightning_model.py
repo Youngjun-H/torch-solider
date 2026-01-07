@@ -132,12 +132,12 @@ class ReIDLightningModule(L.LightningModule):  # ✅ L.LightningModule (Lightnin
 
         # Build loss functions
         if label_smoothing > 0:
-            from ..losses import LabelSmoothingCrossEntropy
+            from losses import LabelSmoothingCrossEntropy
             self.ce_loss = LabelSmoothingCrossEntropy(epsilon=label_smoothing)
         else:
             self.ce_loss = nn.CrossEntropyLoss()
 
-        from ..losses import TripletLoss
+        from losses import TripletLoss
         self.triplet_loss = TripletLoss(margin=triplet_margin)
 
         # Load pretrained weights if provided
@@ -250,8 +250,15 @@ class ReIDLightningModule(L.LightningModule):  # ✅ L.LightningModule (Lightnin
         # Compute ID loss
         id_loss = self.ce_loss(cls_score, pids)
 
-        # Compute triplet loss
-        triplet_loss, triplet_prec = self.triplet_loss(global_feat, pids)
+        # Compute triplet loss (returns loss, dist_ap, dist_an)
+        triplet_loss, dist_ap, dist_an = self.triplet_loss(global_feat, pids)
+
+        # Calculate triplet precision: percentage of triplets where dist_an > dist_ap
+        # This indicates how well the model separates positives from negatives
+        if dist_ap.sum() > 0:  # Check for valid triplets (not dummy zeros)
+            triplet_prec = (dist_an > dist_ap).float().mean()
+        else:
+            triplet_prec = torch.tensor(0.0, device=global_feat.device)
 
         # Combined loss
         loss = (

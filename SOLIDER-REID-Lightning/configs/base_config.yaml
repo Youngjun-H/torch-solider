@@ -1,6 +1,13 @@
 # Base configuration for SOLIDER-REID Lightning training
 
-# Model configuration
+# Hydra defaults - allows overriding with model=swin_base, dataset=cctv_reid, etc.
+# Note: _self_ first means model/*.yaml and dataset/*.yaml values override base_config
+defaults:
+  - _self_
+  - model: swin_base  # Default model config (can override with model=swin_small, etc.)
+  - dataset: cctv_reid  # Default dataset config (can override with dataset=market1501, etc.)
+
+# Model configuration (can be overridden by model/*.yaml)
 model:
   name: swin_base_patch4_window7_224  # swin_tiny/small/base, vit_base/small, resnet50
   pretrain_path: ''  # Path to pretrained SOLIDER checkpoint
@@ -80,9 +87,8 @@ training:
   # Progress bar
   use_rich_progress: false
 
-# Logging configuration
+# Logging configuration (WandB)
 logging:
-  use_wandb: false
   wandb_project: solider-reid
   experiment_name: ${model.name}_${data.dataset}
 

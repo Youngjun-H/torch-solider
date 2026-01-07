@@ -165,7 +165,7 @@ class ReIDDataModule(L.LightningDataModule):  # ✅ L.LightningDataModule (Light
                 batch_sampler = torch.utils.data.sampler.BatchSampler(
                     sampler,
                     self.hparams.batch_size // self.trainer.world_size,
-                    True
+                    drop_last=True  # Drop last incomplete batch to avoid BatchNorm error
                 )
                 return DataLoader(
                     self.train_dataset,
@@ -188,6 +188,7 @@ class ReIDDataModule(L.LightningDataModule):  # ✅ L.LightningDataModule (Light
                     num_workers=self.hparams.num_workers,
                     collate_fn=self._train_collate_fn,
                     pin_memory=True,
+                    drop_last=True,  # Drop last incomplete batch to avoid BatchNorm error
                 )
         else:
             # Standard random sampler

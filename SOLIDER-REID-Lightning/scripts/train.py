@@ -30,9 +30,12 @@ from lightning.pytorch.callbacks import (  # ✅ Lightning 2.6+ callbacks import
     RichProgressBar,
     TQDMProgressBar
 )
-from lightning.pytorch.loggers import TensorBoardLogger  # ✅ Lightning 2.6+ logger import
+from lightning.pytorch.loggers import WandbLogger  # ✅ Lightning 2.6+ WandB logger
+from lightning.pytorch.strategies import DDPStrategy  # ✅ DDP strategy for find_unused_parameters
 import hydra
 from omegaconf import DictConfig, OmegaConf
+
+from dotenv import load_dotenv
 
 from models.lightning_model import ReIDLightningModule
 from data.datamodule import ReIDDataModule
@@ -149,22 +152,13 @@ def main(cfg: DictConfig):
     )
     callbacks.append(reid_eval_callback)
 
-    # Setup logger
-    logger = TensorBoardLogger(
+    # Setup WandB logger
+    logger = WandbLogger(
+        project=cfg.logging.wandb_project,
+        name=cfg.logging.experiment_name,
         save_dir=cfg.output_dir,
-        name='lightning_logs',
-        default_hp_metric=False
+        log_model=True,  # Log model checkpoints to WandB
     )
-
-    # Optional: WandB logger
-    if cfg.logging.get('use_wandb', False):
-        from lightning.pytorch.loggers import WandbLogger  # ✅ Lightning 2.6+ logger
-        wandb_logger = WandbLogger(
-            project=cfg.logging.wandb_project,
-            name=cfg.logging.experiment_name,
-            save_dir=cfg.output_dir,
-        )
-        logger = [logger, wandb_logger]
 
     # ✅ Lightning 2.6+: Initialize Trainer with updated API
     trainer = L.Trainer(
@@ -172,13 +166,18 @@ def main(cfg: DictConfig):
         accelerator='auto',  # ✅ Auto-detect GPU/CPU
         devices='auto',      # ✅ Auto-detect available devices (SLURM aware)
         num_nodes=cfg.training.get('num_nodes', 1),
-        strategy='auto',     # ✅ Auto-select best strategy (DDP for multi-GPU)
+        # ✅ DDP with find_unused_parameters=True for SOLIDER model
+        # Some parameters (e.g., semantic branch) may not be used in every training step
+        strategy=DDPStrategy(find_unused_parameters=True),
 
         # Training
         max_epochs=cfg.training.max_epochs,
         precision=cfg.training.precision,  # ✅ Must be string: "16-mixed", "32-true", etc.
         gradient_clip_val=cfg.training.get('gradient_clip_val', 0.0),
         accumulate_grad_batches=cfg.training.get('accumulate_grad_batches', 1),
+
+        # ✅ SyncBatchNorm for DDP - prevents batch size 1 errors
+        sync_batchnorm=True,
 
         # Logging & Checkpointing
         logger=logger,
@@ -228,4 +227,5 @@ def main(cfg: DictConfig):
 
 
 if __name__ == '__main__':
+    load_dotenv()
     main()

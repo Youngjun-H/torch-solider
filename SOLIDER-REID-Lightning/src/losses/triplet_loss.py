@@ -73,6 +73,17 @@ def hard_example_mining(dist_mat, labels, return_inds=False):
     is_pos = labels.expand(N, N).eq(labels.expand(N, N).t())
     is_neg = labels.expand(N, N).ne(labels.expand(N, N).t())
 
+    # Check if there are valid positive and negative pairs
+    num_pos = is_pos.sum().item() - N  # Exclude diagonal (self-pairs)
+    num_neg = is_neg.sum().item()
+
+    # Handle edge case: no valid triplets (all same identity or all different)
+    if num_pos == 0 or num_neg == 0:
+        # Return None to signal no valid triplets
+        if return_inds:
+            return None, None, None, None
+        return None, None
+
     # `dist_ap` means distance(anchor, positive)
     # both `dist_ap` and `relative_p_inds` with shape [N, 1]
     dist_ap, relative_p_inds = torch.max(
@@ -124,8 +135,12 @@ class TripletLoss(object):
         dist_mat = euclidean_dist(global_feat, global_feat)
         dist_ap, dist_an = hard_example_mining(dist_mat, labels)
 
-        #  dist_ap *= (1.0 + self.hard_factor)
-        #  dist_an *= (1.0 - self.hard_factor)
+        # Handle edge case: no valid triplets in this batch (DDP edge case)
+        if dist_ap is None or dist_an is None:
+            # Return zero loss with dummy values for dist_ap, dist_an
+            zero_loss = torch.tensor(0.0, device=global_feat.device, requires_grad=True)
+            dummy_dist = torch.zeros(global_feat.size(0), device=global_feat.device)
+            return zero_loss, dummy_dist, dummy_dist
 
         y = dist_an.new().resize_as_(dist_an).fill_(1)
         if self.margin is not None:

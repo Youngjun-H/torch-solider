@@ -1,0 +1,13 @@
+# @package _global_
+
+# CCTV ReID dataset configuration
+data:
+  dataset: cctv_reid
+  root_dir: /purestorage/AILAB/AI_2/datasets/PersonReID/cctv_reid_dataset_v2
+  batch_size: 64
+  num_instances: 4  # K in P×K sampling for triplet loss
+  num_workers: 8
+  sampler: softmax_triplet
+
+  img_size_train: [384, 128]
+  img_size_test: [384, 128]
