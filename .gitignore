@@ -9,3 +9,8 @@ uv.lock*
 *.pth
 *.log
 *.md
+*.out
+
+.env
+
+outputs/

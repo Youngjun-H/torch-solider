@@ -1,0 +1,27 @@
+# SOLIDER-REID-DDP Requirements
+# Native PyTorch DDP Training
+
+# Core
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Configuration
+pyyaml>=6.0
+
+# Image processing
+pillow>=9.0.0
+opencv-python>=4.5.0
+
+# Numerical
+numpy>=1.21.0
+scipy>=1.7.0
+
+# Metrics
+scikit-learn>=1.0.0
+
+# Logging
+wandb>=0.13.0
+tqdm>=4.62.0
+
+# Environment
+python-dotenv>=0.19.0

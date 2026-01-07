@@ -1,0 +1,70 @@
+# SOLIDER-REID DDP Training Configuration
+
+# Model configuration
+model:
+  name: swin_base_patch4_window7_224
+  pretrain_path: /purestorage/AILAB/AI_2/yjhwang/work/reid/torch-solider/important_checkpoints/phase2/phase2.pth
+  semantic_weight: 0.2
+  drop_path_rate: 0.1
+  drop_rate: 0.0
+  attn_drop_rate: 0.0
+  neck: bnneck
+  neck_feat: before
+  feat_norm: 'yes'
+
+# Dataset configuration
+data:
+  dataset: cctv_reid
+  root_dir: /purestorage/AILAB/AI_2/datasets/PersonReID/cctv_reid_dataset_v2
+  batch_size: 64
+  num_instances: 4
+  num_workers: 8
+
+  img_size_train: [384, 128]
+  img_size_test: [384, 128]
+
+  augmentation:
+    random_flip_prob: 0.5
+    random_erase_prob: 0.5
+    padding: 10
+    pixel_mean: [0.5, 0.5, 0.5]
+    pixel_std: [0.5, 0.5, 0.5]
+
+# Loss configuration
+loss:
+  id_loss_weight: 1.0
+  triplet_loss_weight: 1.0
+  triplet_margin: 0.3
+  label_smoothing: 0.0
+
+# Optimizer configuration
+optimizer:
+  name: SGD
+  lr: 0.0008
+  weight_decay: 0.0001
+  momentum: 0.9
+  bias_lr_factor: 2.0
+
+# Scheduler configuration
+scheduler:
+  name: cosine
+  warmup_epochs: 10
+  steps: [40, 70]
+  gamma: 0.1
+
+# Training configuration
+training:
+  max_epochs: 120
+  seed: 1234
+  use_amp: true
+  log_period: 50
+  eval_period: 5
+
+# Logging configuration
+logging:
+  use_wandb: true
+  wandb_project: solider-reid-ddp
+  experiment_name: swin_base_cctv_reid
+
+# Output directory
+output_dir: ./outputs/cctv_reid_swin_base
