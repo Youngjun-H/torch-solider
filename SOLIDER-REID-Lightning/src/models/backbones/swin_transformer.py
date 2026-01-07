@@ -17,7 +17,7 @@ from torch.nn import ModuleList
 from torch.nn import Sequential
 from torch.nn import Linear
 from torch import Tensor
-from mmcv.runner import load_checkpoint as _load_checkpoint
+# Removed unused mmcv import - local implementation exists in transformer_layers.py
 
 from itertools import repeat
 import collections.abc

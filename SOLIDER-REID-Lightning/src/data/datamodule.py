@@ -20,6 +20,7 @@ from .sampler import RandomIdentitySampler
 from .sampler_ddp import RandomIdentitySampler_DDP
 from .market1501 import Market1501
 from .msmt17 import MSMT17
+from .cctv_reid import CCTVReID
 
 
 class ReIDDataModule(L.LightningDataModule):  # ✅ L.LightningDataModule (Lightning 2.6+)
@@ -27,7 +28,7 @@ class ReIDDataModule(L.LightningDataModule):  # ✅ L.LightningDataModule (Light
     PyTorch Lightning 2.6+ DataModule for Person Re-Identification
 
     Features:
-    - Support for Market1501, MSMT17
+    - Support for Market1501, MSMT17, CCTVReID
     - Identity sampling (P×K) for triplet loss
     - Automatic DDP compatibility
     - Efficient data loading with persistent workers
@@ -69,6 +70,7 @@ class ReIDDataModule(L.LightningDataModule):  # ✅ L.LightningDataModule (Light
         self.dataset_factory = {
             'market1501': Market1501,
             'msmt17': MSMT17,
+            'cctv_reid': CCTVReID,
         }
 
         # Initialize placeholders

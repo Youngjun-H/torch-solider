@@ -2,15 +2,15 @@ import math
 import os.path as osp
 import torch
 from torch import nn as nn
-from torch._six import container_abcs
+from collections.abc import Iterable
 from functools import partial
 from itertools import repeat
 from torch.nn import functional as F
 
-# From PyTorch internals
+# From PyTorch internals (updated for modern PyTorch)
 def _ntuple(n):
     def parse(x):
-        if isinstance(x, container_abcs.Iterable):
+        if isinstance(x, Iterable):
             return x
         return tuple(repeat(x, n))
     return parse

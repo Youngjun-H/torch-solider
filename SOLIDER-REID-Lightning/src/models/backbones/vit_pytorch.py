@@ -23,17 +23,17 @@ Hacked together by / Copyright 2020 Ross Wightman
 import math
 from functools import partial
 from itertools import repeat
+from collections.abc import Iterable
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch._six import container_abcs
 
 
-# From PyTorch internals
+# From PyTorch internals (updated for modern PyTorch)
 def _ntuple(n):
     def parse(x):
-        if isinstance(x, container_abcs.Iterable):
+        if isinstance(x, Iterable):
             return x
         return tuple(repeat(x, n))
     return parse
