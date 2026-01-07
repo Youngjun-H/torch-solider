@@ -1,0 +1,18 @@
+# @package _global_
+
+# Swin Transformer Base configuration
+model:
+  name: swin_base_patch4_window7_224
+  pretrain_path: ''  # Set your checkpoint path
+  semantic_weight: 0.2
+  drop_path_rate: 0.1
+  drop_rate: 0.0
+  attn_drop_rate: 0.0
+
+optimizer:
+  name: SGD
+  lr: 0.0008
+  weight_decay: 0.0001
+
+training:
+  max_epochs: 120

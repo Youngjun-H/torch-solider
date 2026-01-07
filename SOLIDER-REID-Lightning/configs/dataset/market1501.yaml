@@ -1,0 +1,13 @@
+# @package _global_
+
+# Market1501 dataset configuration
+data:
+  dataset: market1501
+  root_dir: ./data/market1501
+  batch_size: 64
+  num_instances: 4
+  num_workers: 8
+  sampler: softmax_triplet
+
+  img_size_train: [384, 128]
+  img_size_test: [384, 128]
