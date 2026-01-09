@@ -1,0 +1,8 @@
+config: configs/eval_cctv_reid.yaml
+dataset: cctv_reid
+mAP: 0.4920146455099763
+model: swin_base_patch4_window7_224
+pretrain_path: /purestorage/AILAB/AI_2/yjhwang/work/reid/torch-solider/swin_base_msmt17.pth
+rank1: 0.7645630836486816
+rank10: 0.9296116232872009
+rank5: 0.8883495330810547

@@ -1300,28 +1300,83 @@ class SwinTransformer(BaseModule):
                     constant_init(m.bias, 0)
                     constant_init(m.weight, 1.0)
         else:
+            print("\n" + "=" * 80)
+            print("[DEBUG] SwinTransformer Backbone - init_weights()")
+            print("=" * 80)
+            print(f"[DEBUG] Loading pretrained weights from: {pretrained}")
+
             ckpt = torch.load(pretrained,map_location='cpu')
+
+            # Debug checkpoint structure
+            print(f"[DEBUG] Checkpoint type: {type(ckpt)}")
+            if isinstance(ckpt, dict):
+                print(f"[DEBUG] Checkpoint keys: {list(ckpt.keys())}")
+
             if 'teacher' in ckpt:
                 ckpt = ckpt['teacher']
+                print("[DEBUG] Using 'teacher' key from checkpoint")
 
             if 'state_dict' in ckpt:
                 _state_dict = ckpt['state_dict']
+                print("[DEBUG] Using 'state_dict' key from checkpoint")
             elif 'model' in ckpt:
                 _state_dict = ckpt['model']
+                print("[DEBUG] Using 'model' key from checkpoint")
             else:
                 _state_dict = ckpt
+                print("[DEBUG] Using checkpoint directly as state_dict")
+
+            print(f"[DEBUG] Total keys in raw checkpoint: {len(_state_dict)}")
+
             if self.convert_weights:
                 # supported loading weight from original repo,
+                print("[DEBUG] Converting weights using swin_converter...")
                 _state_dict = swin_converter(_state_dict)
+                print(f"[DEBUG] Keys after conversion: {len(_state_dict)}")
 
             state_dict = OrderedDict()
+            backbone_prefix_count = 0
+            module_prefix_count = 0
             for k, v in _state_dict.items():
-                if k.startswith('backbone.'):
-                    state_dict[k[9:]] = v
+                new_key = k
+                # Strip 'backbone.' prefix if present
+                if new_key.startswith('backbone.'):
+                    new_key = new_key[9:]
+                    backbone_prefix_count += 1
+                # Strip 'module.' prefix if present
+                if new_key.startswith('module.'):
+                    new_key = new_key[7:]
+                    module_prefix_count += 1
+                state_dict[new_key] = v
 
-            # strip prefix of state_dict
-            if list(state_dict.keys())[0].startswith('module.'):
-                state_dict = {k[7:]: v for k, v in state_dict.items()}
+            print(f"[DEBUG] Keys with 'backbone.' prefix stripped: {backbone_prefix_count}")
+            print(f"[DEBUG] Keys with 'module.' prefix stripped: {module_prefix_count}")
+
+            print(f"[DEBUG] Final pretrained state_dict keys: {len(state_dict)}")
+            print(f"[DEBUG] Sample keys (first 10): {list(state_dict.keys())[:10]}")
+
+            # Get current model state for comparison
+            current_state = self.state_dict()
+            print(f"\n[DEBUG] Current backbone keys: {len(current_state)}")
+
+            # Key matching analysis
+            pretrain_keys = set(state_dict.keys())
+            model_keys = set(current_state.keys())
+            matched = pretrain_keys & model_keys
+            missing_in_pretrain = model_keys - pretrain_keys
+            unexpected = pretrain_keys - model_keys
+
+            print(f"[DEBUG] Matched keys: {len(matched)}")
+            print(f"[DEBUG] Missing in pretrain: {len(missing_in_pretrain)}")
+            print(f"[DEBUG] Unexpected in pretrain: {len(unexpected)}")
+
+            if missing_in_pretrain:
+                print(f"[DEBUG] Sample missing keys: {list(missing_in_pretrain)[:5]}")
+            if unexpected:
+                print(f"[DEBUG] Sample unexpected keys: {list(unexpected)[:5]}")
+
+            # Save state before loading for verification
+            state_before = {k: v.clone() for k, v in current_state.items()}
 
             # reshape absolute position embedding
             if state_dict.get('absolute_pos_embed') is not None:
@@ -1330,22 +1385,39 @@ class SwinTransformer(BaseModule):
                 N2, C2, H, W = self.absolute_pos_embed.size()
                 if N1 != N2 or C1 != C2 or L != H * W:
                     logger.warning('Error in loading absolute_pos_embed, pass')
+                    print("[DEBUG] WARNING: absolute_pos_embed size mismatch!")
                 else:
                     state_dict['absolute_pos_embed'] = absolute_pos_embed.view(
                         N2, H, W, C2).permute(0, 3, 1, 2).contiguous()
+                    print("[DEBUG] Reshaped absolute_pos_embed successfully")
 
             # interpolate position bias table if needed
             relative_position_bias_table_keys = [
                 k for k in state_dict.keys()
                 if 'relative_position_bias_table' in k
             ]
+            model_state = self.state_dict()
+            resized_tables = 0
+            skipped_tables = 0
             for table_key in relative_position_bias_table_keys:
+                # Find corresponding key in model state_dict
+                # Handle potential 'backbone.' prefix mismatch
+                model_key = table_key
+                if table_key.startswith('backbone.'):
+                    model_key = table_key[9:]  # Remove 'backbone.' prefix
+
+                if model_key not in model_state:
+                    print(f"[DEBUG] Skipping {table_key}: '{model_key}' not found in model state_dict")
+                    skipped_tables += 1
+                    continue
+
                 table_pretrained = state_dict[table_key]
-                table_current = self.state_dict()[table_key]
+                table_current = model_state[model_key]
                 L1, nH1 = table_pretrained.size()
                 L2, nH2 = table_current.size()
                 if nH1 != nH2:
                     logger.warning(f'Error in loading {table_key}, pass')
+                    print(f"[DEBUG] WARNING: {table_key} head mismatch!")
                 elif L1 != L2:
                     S1 = int(L1**0.5)
                     S2 = int(L2**0.5)
@@ -1355,9 +1427,57 @@ class SwinTransformer(BaseModule):
                         mode='bicubic')
                     state_dict[table_key] = table_pretrained_resized.view(
                         nH2, L2).permute(1, 0).contiguous()
+                    resized_tables += 1
+
+            if resized_tables > 0:
+                print(f"[DEBUG] Resized {resized_tables} position bias tables")
+            if skipped_tables > 0:
+                print(f"[DEBUG] Skipped {skipped_tables} position bias tables (not found in model)")
 
             res = self.load_state_dict(state_dict, False)
-            print('unloaded parameters:', res)
+            print(f"\n[DEBUG] load_state_dict result:")
+            print(f"  - Missing keys: {len(res.missing_keys)}")
+            print(f"  - Unexpected keys: {len(res.unexpected_keys)}")
+
+            if res.missing_keys:
+                print(f"[DEBUG] Missing keys (first 10): {res.missing_keys[:10]}")
+            if res.unexpected_keys:
+                print(f"[DEBUG] Unexpected keys (first 10): {res.unexpected_keys[:10]}")
+
+            # Verify weights actually changed
+            state_after = self.state_dict()
+            changed_count = 0
+            unchanged_count = 0
+
+            for key in matched:
+                if torch.equal(state_before[key], state_after[key]):
+                    unchanged_count += 1
+                else:
+                    changed_count += 1
+
+            print(f"\n[DEBUG] Weight verification:")
+            print(f"  - Keys with changed weights: {changed_count}")
+            print(f"  - Keys with unchanged weights: {unchanged_count}")
+
+            # Sample weight comparison
+            if matched:
+                sample_key = list(matched)[0]
+                before_sample = state_before[sample_key].flatten()[:5]
+                after_sample = state_after[sample_key].flatten()[:5]
+                pretrain_sample = state_dict[sample_key].flatten()[:5]
+                print(f"\n[DEBUG] Sample weight comparison for '{sample_key}':")
+                print(f"  - Before loading: {before_sample.tolist()}")
+                print(f"  - After loading: {after_sample.tolist()}")
+                print(f"  - Pretrain values: {pretrain_sample.tolist()}")
+
+                if torch.allclose(after_sample, pretrain_sample):
+                    print(f"  - [OK] Weights match pretrain!")
+                else:
+                    print(f"  - [WARNING] Weights do NOT match pretrain!")
+
+            print("\n" + "=" * 80)
+            print("[DEBUG] SwinTransformer init_weights() completed!")
+            print("=" * 80 + "\n")
 
     def forward(self, x, semantic_weight=None):
         if self.semantic_weight >= 0 and semantic_weight == None:

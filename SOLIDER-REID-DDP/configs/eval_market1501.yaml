@@ -1,0 +1,35 @@
+# Evaluation config for Market1501 with SOLIDER pretrained model
+
+# Model configuration
+model:
+  name: swin_base_patch4_window7_224
+  pretrain_path: /purestorage/AILAB/AI_2/yjhwang/work/reid/torch-solider/important_checkpoints/phase2/phase2.pth
+  semantic_weight: 0.2
+  drop_path_rate: 0.1
+  drop_rate: 0.0
+  attn_drop_rate: 0.0
+  neck: bnneck
+  neck_feat: before  # Use feature before BN (recommended for SOLIDER)
+  feat_norm: 'yes'   # Normalize features (equivalent to cosine distance)
+
+# Dataset configuration
+data:
+  dataset: market1501
+  root_dir: /purestorage/AILAB/AI_2/datasets/PersonReID  # Parent directory containing market1501 folder
+  batch_size_test: 256
+  num_workers: 8
+
+  img_size_test: [384, 128]  # Height x Width
+
+  augmentation:
+    pixel_mean: [0.5, 0.5, 0.5]
+    pixel_std: [0.5, 0.5, 0.5]
+
+# Distance metric: 'euclidean' or 'cosine'
+distance_metric: euclidean
+
+# Output directory for evaluation results
+output_dir: ./eval_outputs/market1501_swin_base
+
+# Optional: path to fine-tuned model weights (leave empty to use only pretrained)
+# test_weight: ''

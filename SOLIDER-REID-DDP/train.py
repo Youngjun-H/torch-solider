@@ -350,9 +350,10 @@ def evaluate_model(model, val_loader, num_query, cfg, logger):
     feats_list = []
     pids_list = []
     camids_list = []
+    indices_list = []
 
     for batch in val_loader:
-        imgs, pids, camids, _, _ = batch
+        imgs, pids, camids, _, indices = batch
         imgs = imgs.cuda(non_blocking=True)
 
         # Extract features
@@ -360,19 +361,42 @@ def evaluate_model(model, val_loader, num_query, cfg, logger):
         feats_list.append(feat.cpu())
         pids_list.append(pids)
         camids_list.append(camids)
+        indices_list.append(indices)
 
     # Concatenate all features
     feats = torch.cat(feats_list, dim=0)
-    pids = torch.cat(pids_list, dim=0).numpy()
-    camids = torch.cat(camids_list, dim=0).numpy()
+    pids = torch.cat(pids_list, dim=0)
+    camids = torch.cat(camids_list, dim=0)
+    indices = torch.cat(indices_list, dim=0)
 
     # Gather from all GPUs
     if get_world_size() > 1:
         feats = all_gather_tensor(feats.cuda()).cpu()
-        # Note: pids and camids need special handling for all_gather
-        # For simplicity, only evaluate on rank 0 with gathered features
+        pids = all_gather_tensor(pids.cuda()).cpu()
+        camids = all_gather_tensor(camids.cuda()).cpu()
+        indices = all_gather_tensor(indices.cuda()).cpu()
 
     if is_main_process():
+        # Sort by original indices to restore order (query first, then gallery)
+        sort_idx = torch.argsort(indices)
+        feats = feats[sort_idx]
+        pids = pids[sort_idx]
+        camids = camids[sort_idx]
+        sorted_indices = indices[sort_idx]
+
+        # Remove duplicates from DistributedSampler padding
+        # Keep only the first occurrence of each index
+        mask = torch.cat([torch.tensor([True]), sorted_indices[1:] != sorted_indices[:-1]])
+        feats = feats[mask]
+        pids = pids[mask].numpy()
+        camids = camids[mask].numpy()
+
+        # Ensure we have the right number of samples
+        total_samples = len(val_loader.dataset)
+        feats = feats[:total_samples]
+        pids = pids[:total_samples]
+        camids = camids[:total_samples]
+
         # Split query and gallery
         query_feat = feats[:num_query]
         gallery_feat = feats[num_query:]
@@ -461,6 +485,7 @@ def main():
     cfg.model.num_classes = num_classes
 
     # Build model
+    frozen_stages = getattr(cfg.model, 'frozen_stages', -1)
     model = ReIDModel(
         model_name=cfg.model.name,
         num_classes=num_classes,
@@ -472,6 +497,7 @@ def main():
         attn_drop_rate=cfg.model.attn_drop_rate,
         neck=cfg.model.neck,
         neck_feat=cfg.model.neck_feat,
+        frozen_stages=frozen_stages,
     )
     model = model.to(device)
 
@@ -487,8 +513,14 @@ def main():
 
     if is_main_process():
         logger.info(f"Model: {cfg.model.name}")
-        num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        logger.info(f"Trainable parameters: {num_params:,}")
+        total_params = sum(p.numel() for p in model.parameters())
+        trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        frozen_params = total_params - trainable_params
+        logger.info(f"Total parameters: {total_params:,}")
+        logger.info(f"Trainable parameters: {trainable_params:,}")
+        logger.info(f"Frozen parameters: {frozen_params:,}")
+        if frozen_stages >= 0:
+            logger.info(f"Backbone frozen_stages: {frozen_stages}")
 
     # Build optimizer and scheduler
     optimizer = build_optimizer(cfg, model)

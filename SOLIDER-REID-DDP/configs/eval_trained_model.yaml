@@ -1,0 +1,37 @@
+# Evaluation config for trained SOLIDER model (Swin Base backbone)
+
+# Model configuration
+model:
+  name: swin_base_patch4_window7_224
+  pretrain_path: /purestorage/AILAB/AI_2/yjhwang/work/reid/torch-solider/important_checkpoints/phase2/phase2.pth
+  semantic_weight: 0.2
+  drop_path_rate: 0.1
+  drop_rate: 0.0
+  attn_drop_rate: 0.0
+  neck: bnneck
+  neck_feat: before
+  feat_norm: 'yes'
+
+# Dataset configuration
+data:
+  dataset: cctv_reid
+  root_dir: /purestorage/AILAB/AI_2/datasets/PersonReID/cctv_reid_dataset_v2
+  batch_size_test: 256
+  num_workers: 8
+
+  img_size_test: [384, 128]
+
+  augmentation:
+    pixel_mean: [0.5, 0.5, 0.5]
+    pixel_std: [0.5, 0.5, 0.5]
+
+# Distance metric
+distance_metric: euclidean
+
+# Trained model weights (학습된 모델 경로)
+# 아래 경로를 실제 학습된 모델 경로로 변경하세요
+test_weight: ./outputs/cctv_reid_swin_base/best_model.pth
+# test_weight: ./outputs/cctv_reid_swin_base/transformer_120.pth
+
+# Output directory
+output_dir: ./eval_outputs/trained_swin_base

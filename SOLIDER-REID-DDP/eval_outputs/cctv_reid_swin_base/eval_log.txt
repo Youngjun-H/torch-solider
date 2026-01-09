@@ -1,0 +1,56 @@
+2026-01-08 19:13:17,514 evaluate INFO: Config: configs/eval_cctv_reid.yaml
+2026-01-08 19:13:17,515 evaluate INFO: Config content: data:
+  augmentation:
+    pixel_mean:
+    - 0.5
+    - 0.5
+    - 0.5
+    pixel_std:
+    - 0.5
+    - 0.5
+    - 0.5
+  batch_size_test: 256
+  dataset: cctv_reid
+  img_size_test:
+  - 384
+  - 128
+  num_workers: 8
+  root_dir: /purestorage/AILAB/AI_2/datasets/PersonReID/cctv_reid_dataset_v2
+distance_metric: euclidean
+model:
+  attn_drop_rate: 0.0
+  drop_path_rate: 0.1
+  drop_rate: 0.0
+  feat_norm: 'yes'
+  name: swin_base_patch4_window7_224
+  neck: bnneck
+  neck_feat: before
+  pretrain_path: /purestorage/AILAB/AI_2/yjhwang/work/reid/torch-solider/swin_base_msmt17.pth
+  semantic_weight: 0.2
+output_dir: ./eval_outputs/cctv_reid_swin_base
+
+2026-01-08 19:13:17,709 evaluate INFO: Using device: cuda
+2026-01-08 19:13:17,884 evaluate INFO: => CCTV ReID loaded
+2026-01-08 19:13:17,889 evaluate INFO: Dataset statistics:
+2026-01-08 19:13:17,889 evaluate INFO:   ----------------------------------------
+2026-01-08 19:13:17,889 evaluate INFO:   subset   | # ids | # images | # cameras
+2026-01-08 19:13:17,889 evaluate INFO:   ----------------------------------------
+2026-01-08 19:13:17,889 evaluate INFO:   train    |    57 |    28500 |         4
+2026-01-08 19:13:17,889 evaluate INFO:   query    |    60 |      414 |         4
+2026-01-08 19:13:17,889 evaluate INFO:   gallery  |    60 |     4800 |         4
+2026-01-08 19:13:17,889 evaluate INFO:   ----------------------------------------
+2026-01-08 19:13:17,892 evaluate INFO: Number of query images: 414
+2026-01-08 19:13:17,892 evaluate INFO: Number of gallery images: 4800
+2026-01-08 19:13:20,373 evaluate INFO: Extracting features...
+2026-01-08 19:15:43,460 evaluate INFO: Feature shape: torch.Size([5214, 1024])
+2026-01-08 19:15:43,460 evaluate INFO: Feature normalization: True
+2026-01-08 19:15:43,460 evaluate INFO: Distance metric: euclidean
+2026-01-08 19:15:47,152 evaluate INFO: ==================================================
+2026-01-08 19:15:47,152 evaluate INFO: Evaluation Results
+2026-01-08 19:15:47,152 evaluate INFO: ==================================================
+2026-01-08 19:15:47,152 evaluate INFO: mAP: 49.2%
+2026-01-08 19:15:47,152 evaluate INFO: Rank-1: 76.5%
+2026-01-08 19:15:47,152 evaluate INFO: Rank-5: 88.8%
+2026-01-08 19:15:47,152 evaluate INFO: Rank-10: 93.0%
+2026-01-08 19:15:47,152 evaluate INFO: ==================================================
+2026-01-08 19:15:47,155 evaluate INFO: Results saved to ./eval_outputs/cctv_reid_swin_base/results.yaml

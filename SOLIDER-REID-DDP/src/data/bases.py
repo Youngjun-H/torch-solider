@@ -83,5 +83,5 @@ class ImageDataset(Dataset):
         if self.transform is not None:
             img = self.transform(img)
 
-        return img, pid, camid, trackid, img_path
+        return img, pid, camid, trackid, index
         #  return img, pid, camid, trackid,img_path.split('/')[-1]

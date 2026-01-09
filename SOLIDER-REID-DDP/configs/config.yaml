@@ -11,6 +11,7 @@ model:
   neck: bnneck
   neck_feat: before
   feat_norm: 'yes'
+  frozen_stages: 4  # -1 = no freezing, 4 = freeze entire backbone
 
 # Dataset configuration
 data:
@@ -40,7 +41,7 @@ loss:
 # Optimizer configuration
 optimizer:
   name: SGD
-  lr: 0.0008
+  lr: 0.1
   weight_decay: 0.0001
   momentum: 0.9
   bias_lr_factor: 2.0
@@ -58,7 +59,7 @@ training:
   seed: 1234
   use_amp: true
   log_period: 50
-  eval_period: 5
+  eval_period: 1
 
 # Logging configuration
 logging:

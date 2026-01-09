@@ -1,0 +1,32 @@
+# Evaluation config for CCTV ReID with SOLIDER pretrained model
+
+# Model configuration
+model:
+  name: swin_base_patch4_window7_224
+  pretrain_path: /purestorage/AILAB/AI_2/yjhwang/work/reid/torch-solider/swin_base_msmt17.pth
+  semantic_weight: 0.2
+  drop_path_rate: 0.1
+  drop_rate: 0.0
+  attn_drop_rate: 0.0
+  neck: bnneck
+  neck_feat: before
+  feat_norm: 'yes'
+
+# Dataset configuration
+data:
+  dataset: cctv_reid
+  root_dir: /purestorage/AILAB/AI_2/datasets/PersonReID/cctv_reid_dataset_v2
+  batch_size_test: 256
+  num_workers: 8
+
+  img_size_test: [384, 128]
+
+  augmentation:
+    pixel_mean: [0.5, 0.5, 0.5]
+    pixel_std: [0.5, 0.5, 0.5]
+
+# Distance metric
+distance_metric: euclidean
+
+# Output directory
+output_dir: ./eval_outputs/cctv_reid_swin_base
